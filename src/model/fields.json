@@ -1,0 +1,24 @@
+{
+  "core": {
+    "bodyLength": { "label": "Body length", "help": "From the top of the shoulder (beside the neck) down to the hem at the centre.", "min": 25, "max": 120, "step": 0.5, "default": 70, "group": "body" },
+    "neckWidth": { "label": "Neck width", "help": "Distance across the neck opening, side to side.", "min": 8, "max": 45, "step": 0.5, "default": 18, "group": "neck" },
+    "neckDepthFront": { "label": "Front neck depth", "help": "How far the front neckline dips below the shoulder line.", "min": 0.5, "max": 45, "step": 0.5, "default": 9, "group": "neck" },
+    "neckDepthBack": { "label": "Back neck depth", "help": "How far the back neckline dips below the shoulder line.", "min": 0.5, "max": 30, "step": 0.5, "default": 2.5, "group": "neck" },
+    "collarWidth": { "label": "Collar rib width", "help": "Width of the ribbed band around the neck. 0 = raw edge, no rib.", "min": 0, "max": 8, "step": 0.25, "default": 2, "group": "neck" }
+  },
+  "side": {
+    "chestHalf": { "label": "Chest width", "help": "Body width just below the armpits.", "min": 12, "max": 60, "step": 0.5, "default": 26, "group": "body" },
+    "hemHalf": { "label": "Hem width", "help": "Body width at the bottom edge. Wider than the chest flares out; narrower tapers in.", "min": 10, "max": 75, "step": 0.5, "default": 26, "group": "body" },
+    "hemOffset": { "label": "Side hem length", "help": "How much longer (+) or shorter (-) the hem is at the side seam compared with the centre.", "min": -40, "max": 50, "step": 0.5, "default": 0, "group": "body" },
+    "shoulderHalf": { "label": "Shoulder width", "help": "Width across the shoulders, seam to seam.", "min": 10, "max": 50, "step": 0.5, "default": 23, "group": "shoulders" },
+    "shoulderDrop": { "label": "Shoulder slope", "help": "How far the shoulder seam drops from the neck to the shoulder point. Negative raises the shoulder.", "min": -5, "max": 30, "step": 0.5, "default": 4.5, "group": "shoulders" },
+    "armholeDepth": { "label": "Armhole depth", "help": "Vertical distance from the shoulder point down to the armpit.", "min": 8, "max": 50, "step": 0.5, "default": 20, "group": "sleeves" },
+    "sleeveLength": { "label": "Sleeve length", "help": "Along the top of the sleeve, from the shoulder point to the cuff. 0 = sleeveless.", "min": 0, "max": 85, "step": 0.5, "default": 20, "group": "sleeves" },
+    "sleeveOpening": { "label": "Sleeve opening", "help": "Width of the sleeve at the cuff edge.", "min": 6, "max": 60, "step": 0.5, "default": 17, "group": "sleeves" },
+    "sleeveAngle": { "label": "Sleeve angle", "help": "Angle of the sleeve below horizontal. 0 = straight out like a T, higher values hang down.", "min": -20, "max": 80, "step": 1, "default": 25, "group": "sleeves" }
+  },
+  "enums": {
+    "neckStyle": { "label": "Neckline style", "options": ["crew", "scoop", "v", "square", "boat"], "default": "crew" },
+    "hemStyle": { "label": "Hem shape", "options": ["curved", "straight"], "default": "curved" }
+  }
+}
