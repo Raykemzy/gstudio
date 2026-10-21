@@ -59,10 +59,13 @@ aside section { margin-bottom: 18px; }
 .editor2d .collar { fill: #c9ced8; stroke: var(--ink); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .editor2d .hidden-line { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
 .editor2d .compare { fill: none; stroke: #c2410c; stroke-width: 1.5; stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; }
-.editor2d .handle { fill: #fff; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; cursor: grab; }
-.editor2d .handle:hover { fill: #dce6ff; }
-.editor2d .handle.active { fill: var(--accent); cursor: grabbing; }
-.editor2d .handle.blocked { fill: var(--warn); stroke: var(--warn); }
+.editor2d .handle { cursor: grab; }
+.editor2d .handle .hit { fill: transparent; }
+.editor2d .handle .dot { fill: #fff; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.editor2d .handle:hover .dot { fill: #dce6ff; }
+.editor2d .handle.active { cursor: grabbing; }
+.editor2d .handle.active .dot { fill: var(--accent); }
+.editor2d .handle.blocked .dot { fill: var(--warn); stroke: var(--warn); }
 .editor2d .side-label, .editor2d .scale-label { fill: var(--muted); }
 .editor2d .hint { padding: 6px 12px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); background: var(--panel); }
 .editor2d .hint.warn { color: var(--warn); }
@@ -107,8 +110,30 @@ textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; paddi
 .file-button input { display: none; }
 .reference img { max-width: 100%; max-height: 220px; display: block; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; }
 
+/* Narrow screens: one scrolling column with the garment first, then 3D, then the controls. */
 @media (max-width: 1100px) {
-  .workspace { grid-template-columns: 1fr; overflow-y: auto; }
-  .centre { min-height: 70vh; }
+  .app { height: auto; min-height: 100vh; }
+  .workspace { display: flex; flex-direction: column; }
+  .centre { order: 1; height: 75vh; min-height: 420px; }
+  aside.right { order: 2; border-left: none; border-top: 1px solid var(--line); }
+  aside.left { order: 3; border-right: none; border-top: 1px solid var(--line); }
   aside { overflow: visible; }
+}
+@media (max-width: 640px) {
+  .topbar { flex-wrap: wrap; gap: 6px; padding: 6px 10px; }
+  .topbar .brand { display: none; }
+  .topbar .name { flex: 1 1 100%; min-width: 0; font-size: 15px; }
+  .topbar .spacer { display: none; }
+  .topbar button { flex: 1; padding: 8px 6px; }
+  .status { flex: 1 1 100%; order: -1; }
+  .view-toolbar { flex-wrap: wrap; gap: 8px; padding: 6px 10px; }
+  .view-toolbar label { flex: 1 1 auto; font-size: 13px; }
+  .view-toolbar select { max-width: 150px; }
+  .view-toolbar .spacer { display: none; }
+  .centre { height: 68vh; min-height: 380px; }
+  .canvas-host { height: 260px; }
+  aside { padding: 10px; }
+  button, select { min-height: 36px; }
+  .field .num { width: 72px; font-size: 16px; } /* 16px stops iOS zooming into the input */
+  textarea { font-size: 16px; }
 }

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TShirtParams } from '../model/schema';
 import type { NeckSurface } from '../geometry/outline';
 import { getHandles, type Handle } from '../geometry/handles';
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const GRID = 10;
+const coarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
 export function Editor2D({ params, surface, compare, onDrag, onDragEnd }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -23,6 +24,12 @@ export function Editor2D({ params, surface, compare, onDrag, onDragEnd }: Props)
   const [hover, setHover] = useState<Handle | null>(null);
   const [blocked, setBlocked] = useState(false);
   const frozenBox = useRef<string | null>(null);
+  const [, setMeasured] = useState(0);
+  useEffect(() => {
+    const ro = new ResizeObserver(() => setMeasured((n) => n + 1));
+    if (svgRef.current) ro.observe(svgRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   const paths = useMemo(() => garmentPaths(params, surface), [params, surface]);
   const comparePaths = useMemo(() => (compare ? garmentPaths(compare.params, surface) : null), [compare, surface]);
@@ -45,6 +52,10 @@ export function Editor2D({ params, surface, compare, onDrag, onDragEnd }: Props)
   const viewBox = active && frozenBox.current ? frozenBox.current : `${fitted.x} ${fitted.y} ${fitted.w} ${fitted.h}`;
   const [vx, vy, vw, vh] = viewBox.split(' ').map(Number);
   const r = vw / 95; // handle radius in cm, roughly constant on screen
+  // Fingers need a bigger target than a mouse: an invisible ring at least ~44px (touch) / 20px (mouse) across.
+  const svgEl = svgRef.current;
+  const pxPerCm = svgEl ? Math.min(svgEl.clientWidth / vw, svgEl.clientHeight / vh) || 1 : 1;
+  const hitR = Math.max(r * 1.6, (coarsePointer ? 22 : 10) / pxPerCm);
 
   const toModel = (e: React.PointerEvent) => {
     const svg = svgRef.current!;
@@ -104,11 +115,8 @@ export function Editor2D({ params, surface, compare, onDrag, onDragEnd }: Props)
           const v = toView(h.pos, surface);
           const isActive = active?.handle.id === h.id;
           return (
-            <circle
+            <g
               key={h.id}
-              cx={v.x}
-              cy={v.y}
-              r={isActive ? r * 1.25 : r}
               className={`handle${isActive ? ' active' : ''}${isActive && blocked ? ' blocked' : ''}`}
               onPointerDown={(e) => startDrag(e, h)}
               onPointerEnter={() => setHover(h)}
@@ -116,12 +124,14 @@ export function Editor2D({ params, surface, compare, onDrag, onDragEnd }: Props)
               data-handle={h.id}
             >
               <title>{h.label}</title>
-            </circle>
+              <circle cx={v.x} cy={v.y} r={hitR} className="hit" />
+              <circle cx={v.x} cy={v.y} r={isActive ? r * 1.25 : r} className="dot" />
+            </g>
           );
         })}
       </svg>
       <div className={`hint${blocked ? ' warn' : ''}`}>
-        {shown ? shown.label : 'Drag the dots to reshape the garment, or use the controls on the left.'}
+        {shown ? shown.label : 'Drag the dots to reshape the garment, or use the Adjust controls.'}
         {compare && <span className="compare-key"> · dashed outline: {compare.name}</span>}
       </div>
     </div>

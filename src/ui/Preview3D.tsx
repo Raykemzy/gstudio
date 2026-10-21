@@ -182,7 +182,7 @@ export function Preview3D({ params, apiRef }: Props) {
           </button>
         ))}
       </div>
-      <p className="caveat">Simplified shape preview: not a fabric or fit simulation. Depth is estimated. Drag to rotate, scroll to zoom.</p>
+      <p className="caveat">Simplified shape preview: not a fabric or fit simulation. Depth is estimated. Drag to rotate; scroll or pinch to zoom.</p>
     </div>
   );
 }

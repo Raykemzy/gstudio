@@ -5,7 +5,7 @@
 //
 // Provider choice: GARMENT_AI_PROVIDER=gemini|anthropic, otherwise whichever key is
 // set (GEMINI_API_KEY first). GARMENT_AI_MODEL overrides that provider's model.
-import { readFileSync } from 'node:fs';
+import fields from '../src/model/fields.json' with { type: 'json' };
 import { anthropic } from './providers/anthropic.mjs';
 import { gemini } from './providers/gemini.mjs';
 
@@ -15,7 +15,6 @@ try {
   // No .env file: fine, AI is optional.
 }
 
-const fields = JSON.parse(readFileSync(new URL('../src/model/fields.json', import.meta.url), 'utf8'));
 const MAX_PROMPT_CHARS = 2000;
 const PROVIDERS = [gemini, anthropic];
 
@@ -103,6 +102,20 @@ Guidance:
 - "Dropped shoulders" means wider shoulderHalf (often beyond chestHalf) and a deeper armhole; "boxy" means hemHalf close to chestHalf and a straight hem.
 - List in "unsupported" every requested detail these parameters cannot express, instead of silently approximating it. If you approximate something, say so in "unsupported" too.`;
 
+export function aiStatus() {
+  const p = activeProvider();
+  return p ? { available: true, provider: p.label, model: p.model() } : { available: false };
+}
+
+/** Validates the request body, then generates. Returns [httpStatus, json]. */
+export async function handleGenerate(body) {
+  const prompt = body?.prompt;
+  if (typeof prompt !== 'string' || !prompt.trim()) return [400, { error: 'Describe the garment first.' }];
+  if (prompt.length > MAX_PROMPT_CHARS) return [400, { error: `Keep the description under ${MAX_PROMPT_CHARS} characters.` }];
+  const result = await generateProposal(prompt.trim());
+  return [result.error ? 502 : 200, result];
+}
+
 /** Returns { proposal, provider, model } on success, or { error } with a user-readable message. */
 export async function generateProposal(prompt) {
   const provider = activeProvider();
@@ -138,20 +151,15 @@ function sendJson(res, status, body) {
 export function aiMiddleware() {
   return async (req, res, next) => {
     const url = req.url?.split('?')[0];
-    if (url === '/api/ai/status' && req.method === 'GET') {
-      const p = activeProvider();
-      return sendJson(res, 200, p ? { available: true, provider: p.label, model: p.model() } : { available: false });
-    }
+    if (url === '/api/ai/status' && req.method === 'GET') return sendJson(res, 200, aiStatus());
     if (url !== '/api/ai/generate' || req.method !== 'POST') return next();
-    let prompt;
+    let body;
     try {
-      prompt = JSON.parse(await readBody(req)).prompt;
+      body = JSON.parse(await readBody(req));
     } catch {
       return sendJson(res, 400, { error: 'Invalid request.' });
     }
-    if (typeof prompt !== 'string' || !prompt.trim()) return sendJson(res, 400, { error: 'Describe the garment first.' });
-    if (prompt.length > MAX_PROMPT_CHARS) return sendJson(res, 400, { error: `Keep the description under ${MAX_PROMPT_CHARS} characters.` });
-    const result = await generateProposal(prompt.trim());
-    sendJson(res, result.error ? 502 : 200, result);
+    const [status, json] = await handleGenerate(body);
+    sendJson(res, status, json);
   };
 }

@@ -13,6 +13,12 @@ npm run build && npm start   # production build served on http://localhost:4173
 
 **Optional AI generation.** Copy `.env.example` to `.env` and set `GEMINI_API_KEY` (free key from Google AI Studio) or `ANTHROPIC_API_KEY`. The key stays on the server and is never committed. Without it, everything works, and concept generation falls back to an offline keyword matcher that is clearly labelled as not AI.
 
+## Deploy to Vercel
+1. In Vercel, **Add New → Project** and import this GitHub repo. The settings come from `vercel.json`, so nothing needs changing.
+2. Optional: under **Settings → Environment Variables**, add `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`), then redeploy. Without it the hosted app works fully, using the offline matcher.
+
+The AI endpoints run as serverless functions in `api/ai/`. Saved designs live in each visitor's own browser storage.
+
 ## What you can do
 - Start from a preset: Classic, Oversized boxy, Cropped with wide sleeves, Asymmetric hem.
 - Drag the blue dots on the 2D outline, or use the sliders and number boxes. Both edit the same data.
@@ -23,6 +29,7 @@ npm run build && npm start   # production build served on http://localhost:4173
 - Export the 2D view as PNG or SVG (garment plus measurements, no app chrome), and the 3D view as PNG.
 - Download or import a design as `.json`.
 - Attach a reference image. It is stored for reference only.
+- Works on phones: the garment comes first, then the 3D preview and generator, then the controls. Drag targets are enlarged for fingers.
 
 Designs are saved in this browser's local storage. Use **Download .json** to back them up or move them.
 
