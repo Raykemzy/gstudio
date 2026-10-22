@@ -13,12 +13,24 @@ import { Editor2D } from './Editor2D';
 import { Preview3D, type Preview3DApi } from './Preview3D';
 import { Controls } from './Controls';
 import { StyleControls } from './StyleControls';
+import { MeasurementSheet } from './MeasurementSheet';
+import { SIZES, measurementCsv, type Size, type Unit } from '../model/pom';
 import type { GarmentStyle, Panel } from '../model/style';
 import { PresetGallery } from './PresetGallery';
 import { PRESETS, findPreset } from '../model/presets';
 
 const LAST_OPEN_KEY = 'garment-studio:last-open';
 const GALLERY_SEEN_KEY = 'garment-studio:gallery-seen';
+const SPEC_PREFS_KEY = 'garment-studio:spec-prefs';
+
+function readSpecPrefs(storage: Storage): { unit: Unit; base: Size } {
+  try {
+    const v = JSON.parse(storage.getItem(SPEC_PREFS_KEY) ?? 'null');
+    return { unit: v?.unit === 'in' ? 'in' : 'cm', base: SIZES.includes(v?.base) ? v.base : 'M' };
+  } catch {
+    return { unit: 'cm', base: 'M' };
+  }
+}
 
 function openStorage(): { storage: Storage; persistent: boolean } {
   try {
@@ -72,6 +84,11 @@ export function App() {
   const [surface, setSurface] = useState<NeckSurface>('front');
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
+  const [specPrefs, setSpecPrefs] = useState(() => readSpecPrefs(storage));
+  const updateSpecPrefs = (next: { unit: Unit; base: Size }) => {
+    setSpecPrefs(next);
+    storage.setItem(SPEC_PREFS_KEY, JSON.stringify(next));
+  };
   const [compareId, setCompareId] = useState<string>('');
   const [notice, setNotice] = useState<Notice>(
     persistent ? null : { kind: 'error', text: 'Browser storage is unavailable, so designs will not survive a reload. Use "Download .json" to keep your work.' },
@@ -256,7 +273,7 @@ export function App() {
   };
 
   const export2D = async (kind: 'png' | 'svg') => {
-    const svg = buildExportSvg(params, design.name);
+    const svg = buildExportSvg(params, design.name, specPrefs);
     const name = `${safeFilename(design.name)}-flat`;
     if (kind === 'svg') return downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `${name}.svg`);
     try {
@@ -264,6 +281,12 @@ export function App() {
     } catch (e) {
       setNotice({ kind: 'error', text: `PNG export failed: ${(e as Error).message}` });
     }
+  };
+
+  const exportSpecCsv = () => {
+    // The BOM marker makes Excel read the file as UTF-8.
+    const csv = '\ufeff' + measurementCsv(params, { styleName: design.name, ...specPrefs });
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${safeFilename(design.name)}-measurements.csv`);
   };
 
   const export3D = async () => {
@@ -444,6 +467,20 @@ export function App() {
           <section className="preview-section">
             <h2>3D preview <button className="small" onClick={export3D}>Export PNG</button></h2>
             <Preview3D params={params} apiRef={preview} designKey={design.id} />
+          </section>
+
+          <section>
+            <details className="section-details">
+              <summary><h2>Measurement sheet</h2></summary>
+              <MeasurementSheet
+                params={params}
+                unit={specPrefs.unit}
+                base={specPrefs.base}
+                onUnit={(unit) => updateSpecPrefs({ ...specPrefs, unit })}
+                onBase={(base) => updateSpecPrefs({ ...specPrefs, base })}
+                onDownload={exportSpecCsv}
+              />
+            </details>
           </section>
 
           <section>

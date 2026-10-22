@@ -30,7 +30,8 @@ The AI endpoints run as serverless functions in `api/ai/`. Saved designs live in
 - Zoom the canvas only (not the page): pinch on a trackpad or phone, Ctrl/⌘ + scroll, or the − / + / Fit buttons. When zoomed in, drag or scroll to move around.
 - Rotate and zoom the 3D preview, or **Lock angle** to keep a viewpoint while you edit. The lock is remembered in this browser.
 - Undo/redo with Ctrl+Z / Ctrl+Shift+Z, save with Ctrl+S, use **Save as copy** for a new iteration, and duplicate, delete or reopen saved designs.
-- Export a flat sketch (front and back side by side, with measurements) as PNG or SVG, and the 3D view as PNG.
+- Export a flat sketch (front and back side by side, plus a measurement table for sizes XS–XXL) as PNG or SVG, and the 3D view as PNG.
+- **Measurement sheet:** the factory points of measure (chest, body length from HPS, armhole, bicep and more), calculated from your design, in cm or inches, graded across sizes, with tolerances. Download it as a spreadsheet (.csv).
 - Download or import a design as `.json`.
 - Attach a reference image. It is stored for reference only.
 - Works on phones: the garment comes first, then the 3D preview and generator, then the controls. Drag targets are enlarged for fingers.

@@ -76,6 +76,29 @@ Importing external references (patterns, tech packs, images) is deferred to the 
 - **One drawing for everything:** `render/layers.ts` turns a design into an ordered list of layers per view. The SVG editor, the front-and-back export and the 3D preview (painted onto canvas textures with planar UVs) all draw from that list, so they cannot disagree.
 - **Old files:** version-1 files open through a migration that adds the default (uncoloured) style.
 
+### Points of measure (`src/model/pom.ts`)
+Factory measurements are **calculated from the design** the way a factory measures a sample laid flat. The editor's own sliders are left unchanged; where a slider measures differently from the factory, its help text says so.
+- **Measurements:**
+  - A neck width
+  - B/C front and back neck drop
+  - D shoulder width
+  - E shoulder slope
+  - F across front, 12.7 cm below the HPS
+  - G armhole, straight line
+  - H chest, 2.5 cm below the armpits
+  - I waist, 20 cm below the armpits
+  - J hem width
+  - K body length from the HPS
+  - L centre front length
+  - M sleeve length
+  - N bicep, 2.5 cm below the armpit
+  - O sleeve opening
+- **Asymmetric designs** report left and right values separately.
+- **Omitted when they don't apply:** sleeve measurements on sleeveless designs, a waist on a short crop.
+- **Sources:** definitions, tolerances and grading steps follow the CLO-SET and Sizely free tech-pack templates. Values are stored as exact inch-based numbers and rounded only for display.
+- **Sizes:** the design is the sample size (M by default), and XS–XXL are graded from it.
+- **Output:** the in-app sheet (cm or inches), a CSV laid out like the templates' measurement tab, and a table under the front/back flats in the PNG/SVG export.
+
 ## 3. Geometry and validation
 
 `src/geometry/outline.ts` derives named keypoints per side: neck side, shoulder point, sleeve top/bottom, underarm and hem side. Together with the sampled neckline and hem curves, these form one closed polygon. Neckline styles are functions `depth(x)`, so front, back and the outer silhouette (the higher of the two at each x) can be combined exactly.
