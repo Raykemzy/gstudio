@@ -1,6 +1,6 @@
 # Garment Studio: technical design
 
-Status: Phase 0 (feasibility) and Phase 1 (functional editor) done. Phase 2 (AI generation) is implemented behind a replaceable interface (Gemini or Claude) and validated offline. A successful live generation has **not** been tested yet because no valid key was available.
+Status: Phase 0 (feasibility) and Phase 1 (functional editor) done. Phase 2 (AI generation) works with Gemini, tested with a real key. Claude is also supported but has not been tested live.
 
 ## 1. Stack and why
 
@@ -112,14 +112,15 @@ Because the 3D form is generated from *any* closed outline, future image-reconst
 - `server/ai.mjs` runs inside the Vite server (dev and `vite preview`) or `server/serve.mjs` (production), so keys never reach the browser. Endpoints: `GET /api/ai/status`, `POST /api/ai/generate`.
 - It holds the shared prompt and the JSON schema, both generated from `fields.json`. Every field is required, so a proposal is always a complete garment. Providers live in `server/providers/`, one small file each, and implement `generate({ system, prompt, schema })`:
   - **Gemini** (`@google/genai`, default when `GEMINI_API_KEY` is set):
-    - Uses `responseMimeType: application/json` with `responseJsonSchema`. This schema also carries `minimum`/`maximum`, so Gemini is constrained to the valid ranges at generation time.
-    - Model `gemini-flash-latest` (a moving alias), overridable with `GARMENT_AI_MODEL`.
-    - Errors are mapped to plain messages: quota/rate limit (common on the free tier), bad key, unknown model, blocked prompt.
+    - Uses `responseMimeType: application/json` with `responseJsonSchema`. This schema also carries `minimum`/`maximum`, so ranges are enforced at generation time.
+    - Tries `gemini-3-flash-preview`, then `gemini-3.5-flash`, then `gemini-flash-lite-latest`. It moves on when a model is overloaded (503), out of quota (429), retired (404) or slower than 18 s, which keeps the total within Vercel's 60 s limit.
+    - `GARMENT_AI_MODEL` pins a single model.
+    - Tested 2026-10-22 with a real key: the PRD's example prompts returned distinct, faithful designs in 5–7 s. `gemini-flash-latest` was often overloaded. The lite model works but softens extreme proportions. `gemini-2.5-flash` was no longer available.
   - **Claude** (`@anthropic-ai/sdk`): uses `output_config.format` JSON schema with `effort: "low"` and `fallbacks: "default"`. Model `claude-opus-5-5`.
 - Selection: `GARMENT_AI_PROVIDER=gemini|anthropic`, otherwise whichever key is set (Gemini first).
 - The client treats the response as untrusted and runs it through the same `applyProposal` gate as the offline interpreter.
 - **Without a key**, the "Offline keyword matcher (not AI)" maps ~30 garment phrases to parameters and lists the details it did not understand. Manual editing never depends on either.
-- Verified so far: provider selection, schema contents, and that the Gemini SDK call reaches Google and reports a bad key correctly. **Not yet verified:** a successful generation with a real key, and whether Google accepts the full schema.
+- Verified with a real Gemini key: the full schema is accepted and generations pass the client validation gate. The Claude path has not been run against the live API.
 - Gemini free tier: keys come from Google AI Studio. Check Google's current terms before relying on it. Free-tier limits are low, and Google's terms have historically allowed free-tier prompts to be used to improve its products, so avoid sending confidential designs there.
 
 ## 7. What's next (in PRD order)
