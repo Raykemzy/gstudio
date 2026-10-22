@@ -38,6 +38,7 @@ export type CoreParams = Record<CoreKey, number> & { neckStyle: NeckStyle; hemSt
 export type SideParams = Record<SideKey, number>;
 
 export interface TShirtParams {
+  kind: 'tshirt';
   core: CoreParams;
   left: SideParams;
   right: SideParams;
@@ -45,43 +46,6 @@ export interface TShirtParams {
   mirror: boolean;
   /** Colours and panels. Not part of the shape: validation of geometry ignores it. */
   style: GarmentStyle;
-}
-
-export type OriginKind = 'blank' | 'preset' | 'ai' | 'offline-interpreter' | 'duplicate' | 'import';
-
-/** Reserved for the future material/asset library. Not used by the MVP editor. */
-export interface MaterialRef {
-  id: string;
-  region: 'body' | 'sleeves' | 'collar' | 'all';
-  name: string;
-  sourceUrl?: string;
-  licence?: string;
-}
-
-export interface ReferenceImageMeta {
-  key: string;
-  name: string;
-  mime: string;
-  width: number;
-  height: number;
-}
-
-export const DESIGN_FORMAT = 'garment-studio.design';
-export const SCHEMA_VERSION = 2;
-
-export interface DesignRecord {
-  format: typeof DESIGN_FORMAT;
-  schemaVersion: typeof SCHEMA_VERSION;
-  id: string;
-  name: string;
-  garmentType: 'tshirt';
-  createdAt: string;
-  updatedAt: string;
-  params: TShirtParams;
-  lineage: { parentId: string | null; iteration: number };
-  origin: { kind: OriginKind; prompt?: string; notes?: string[] };
-  referenceImage: ReferenceImageMeta | null;
-  materials: MaterialRef[];
 }
 
 // ---------- defaults ----------
@@ -95,6 +59,7 @@ function defaultsOf<K extends string>(specs: Record<K, FieldSpec>): Record<K, nu
 export function defaultParams(): TShirtParams {
   const side = defaultsOf(SIDE_FIELDS);
   return {
+    kind: 'tshirt',
     core: {
       ...defaultsOf(CORE_FIELDS),
       neckStyle: fields.enums.neckStyle.default as NeckStyle,
@@ -108,33 +73,15 @@ export function defaultParams(): TShirtParams {
 }
 
 export function cloneParams(p: TShirtParams): TShirtParams {
-  return { core: { ...p.core }, left: { ...p.left }, right: { ...p.right }, mirror: p.mirror, style: structuredClone(p.style) };
+  return { kind: 'tshirt', core: { ...p.core }, left: { ...p.left }, right: { ...p.right }, mirror: p.mirror, style: structuredClone(p.style) };
 }
 
-export function paramsEqual(a: TShirtParams, b: TShirtParams): boolean {
+export function paramsEqual<P>(a: P, b: P): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `d-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-export function newDesign(params: TShirtParams, name: string, origin: DesignRecord['origin'] = { kind: 'blank' }): DesignRecord {
-  const now = new Date().toISOString();
-  return {
-    format: DESIGN_FORMAT,
-    schemaVersion: SCHEMA_VERSION,
-    id: newId(),
-    name,
-    garmentType: 'tshirt',
-    createdAt: now,
-    updatedAt: now,
-    params: cloneParams(params),
-    lineage: { parentId: null, iteration: 1 },
-    origin,
-    referenceImage: null,
-    materials: [],
-  };
 }
 
 // ---------- runtime schemas (persistence) ----------
@@ -147,33 +94,6 @@ const coreSchema = z.object({
 });
 const sideSchema = z.object(Object.fromEntries(SIDE_KEYS.map((k) => [k, num])) as Record<SideKey, typeof num>);
 
-export const paramsSchema = z.object({ core: coreSchema, left: sideSchema, right: sideSchema, mirror: z.boolean(), style: styleSchema });
+export const tshirtParamsSchema = z.object({ kind: z.literal('tshirt'), core: coreSchema, left: sideSchema, right: sideSchema, mirror: z.boolean(), style: styleSchema });
 
-export const designSchema = z.object({
-  format: z.literal(DESIGN_FORMAT),
-  schemaVersion: z.literal(SCHEMA_VERSION),
-  id: z.string().min(1),
-  name: z.string(),
-  garmentType: z.literal('tshirt'),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  params: paramsSchema,
-  lineage: z.object({ parentId: z.string().nullable(), iteration: z.number().int().min(1) }),
-  origin: z.object({
-    kind: z.enum(['blank', 'preset', 'ai', 'offline-interpreter', 'duplicate', 'import']),
-    prompt: z.string().optional(),
-    notes: z.array(z.string()).optional(),
-  }),
-  referenceImage: z
-    .object({ key: z.string(), name: z.string(), mime: z.string(), width: z.number(), height: z.number() })
-    .nullable(),
-  materials: z.array(
-    z.object({
-      id: z.string(),
-      region: z.enum(['body', 'sleeves', 'collar', 'all']),
-      name: z.string(),
-      sourceUrl: z.string().optional(),
-      licence: z.string().optional(),
-    }),
-  ),
-});
+

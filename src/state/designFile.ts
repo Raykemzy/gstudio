@@ -1,5 +1,7 @@
-import { designSchema, newId, cloneParams, type DesignRecord } from '../model/schema';
-import { validateParams, type Issue } from '../model/validate';
+import { newId } from '../model/schema';
+import { designSchema, type DesignRecord } from '../model/design';
+import { cloneGarment, validateDesign } from '../garments';
+import type { Issue } from '../model/validate';
 import { defaultStyle } from '../model/style';
 
 /**
@@ -16,6 +18,11 @@ const MIGRATIONS: Record<number, Migration> = {
   1: (d) => {
     const params = d.params && typeof d.params === 'object' ? (d.params as Record<string, unknown>) : null;
     return params ? { ...d, params: { ...params, style: params.style ?? defaultStyle() } } : d;
+  },
+  // v3 added garment types (pants): every older design is a T-shirt.
+  2: (d) => {
+    const params = d.params && typeof d.params === 'object' ? (d.params as Record<string, unknown>) : null;
+    return params ? { ...d, garmentType: d.garmentType ?? 'tshirt', params: { kind: 'tshirt', ...params } } : d;
   },
 };
 
@@ -46,7 +53,7 @@ export function parseDesign(json: string): ParseResult {
     return { ok: false, error: `Not a valid design file (${first.path.join('.') || 'root'}: ${first.message}).` };
   }
   // A design that parses but breaks a geometry rule still opens (so work is never lost); the editor shows the warnings.
-  return { ok: true, design: result.data as DesignRecord, warnings: validateParams(result.data.params) };
+  return { ok: true, design: result.data as DesignRecord, warnings: validateDesign(result.data.params as DesignRecord['params']) };
 }
 
 export function serializeDesign(d: DesignRecord): string {
@@ -62,7 +69,7 @@ export function duplicateDesign(d: DesignRecord, name?: string): DesignRecord {
     name: name ?? `${d.name} (copy)`,
     createdAt: now,
     updatedAt: now,
-    params: cloneParams(d.params),
+    params: cloneGarment(d.params),
     lineage: { parentId: d.id, iteration: d.lineage.iteration + 1 },
     origin: { ...d.origin, kind: d.origin.kind === 'blank' ? 'duplicate' : d.origin.kind },
   };

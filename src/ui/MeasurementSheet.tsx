@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import type { TShirtParams } from '../model/schema';
-import { SIZES, formatMeasure, graded, pointsOfMeasure, type Size, type Unit } from '../model/pom';
+import { garmentPoms, type GarmentParams } from '../garments';
+import { SIZES, formatMeasure, graded, type Size, type Unit } from '../model/pom';
 
 interface Props {
-  params: TShirtParams;
+  params: GarmentParams;
   unit: Unit;
   base: Size;
   onUnit: (u: Unit) => void;
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function MeasurementSheet({ params, unit, base, onUnit, onBase, onDownload }: Props) {
-  const poms = useMemo(() => pointsOfMeasure(params), [params]);
+  const poms = useMemo(() => garmentPoms(params), [params]);
   const [allSizes, setAllSizes] = useState(false);
   const cols: Size[] = allSizes ? [...SIZES] : [base];
 
@@ -62,7 +62,9 @@ export function MeasurementSheet({ params, unit, base, onUnit, onBase, onDownloa
           </tbody>
         </table>
       </div>
-      <p className="note">HPS = high point shoulder, the top of the shoulder beside the neck. L / R = wearer's left / right.</p>
+      <p className="note">
+        {params.kind === 'tshirt' && 'HPS = high point shoulder, the top of the shoulder beside the neck. '}L / R = wearer's left / right.
+      </p>
       <button className="small" onClick={onDownload}>Download spec sheet (.csv for Excel / Sheets)</button>
     </div>
   );

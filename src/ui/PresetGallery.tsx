@@ -1,18 +1,31 @@
 import { useEffect, useMemo } from 'react';
-import { PRESETS, PRESET_CATEGORIES, type Preset } from '../model/presets';
-import { garmentPaths } from '../render/paths';
+import { CATEGORY_GROUP, PRESETS, PRESET_CATEGORIES, type Preset } from '../model/presets';
+import { flatView } from '../render/layers';
 
-/** Small front-view outline, drawn with the same path code as the editor. */
+/** Small front view, drawn with the same layers as the editor (colours and panels included). */
 function Thumbnail({ preset }: { preset: Preset }) {
-  const g = useMemo(() => garmentPaths(preset.params(), 'front'), [preset]);
+  const v = useMemo(() => flatView(preset.params(), 'front'), [preset]);
   const pad = 6;
-  const half = Math.max(Math.abs(g.bounds.minX), Math.abs(g.bounds.maxX)) + pad;
-  const top = Math.min(g.bounds.minY, 0) - pad;
-  const size = Math.max(2 * half, g.bounds.maxY - top + pad);
+  const half = Math.max(Math.abs(v.bounds.minX), Math.abs(v.bounds.maxX)) + pad;
+  const top = Math.min(v.bounds.minY, 0) - pad;
+  const size = Math.max(2 * half, v.bounds.maxY - top + pad);
+  const clipId = `thumb-${preset.id}`;
   return (
     <svg viewBox={`${-size / 2} ${top} ${size} ${size}`} aria-hidden="true">
-      <path d={g.outline} className="thumb-garment" />
-      {g.collar && <path d={g.collar} className="thumb-collar" />}
+      <clipPath id={clipId}><path d={v.clip} /></clipPath>
+      {v.layers.map((l, i) => (
+        <path
+          key={i}
+          d={l.d}
+          fill={l.fill ?? 'none'}
+          stroke={l.stroke}
+          strokeWidth={l.stroke ? 1.5 * (l.weight ?? 1) : undefined}
+          strokeDasharray={l.dashed ? '3 2' : undefined}
+          vectorEffect="non-scaling-stroke"
+          strokeLinejoin="round"
+          clipPath={l.clipped ? `url(#${clipId})` : undefined}
+        />
+      ))}
     </svg>
   );
 }
@@ -32,8 +45,9 @@ export function PresetGallery({ onPick, onClose }: { onPick: (id: string) => voi
           <button onClick={onClose} aria-label="Close">Close</button>
         </div>
         <p className="note">Every shape is a starting point: all of it stays editable.</p>
-        {PRESET_CATEGORIES.map((cat) => (
+        {PRESET_CATEGORIES.map((cat, i) => (
           <section key={cat}>
+            {CATEGORY_GROUP[cat] !== CATEGORY_GROUP[PRESET_CATEGORIES[i - 1]] && <h2 className="group-head">{CATEGORY_GROUP[cat]}</h2>}
             <h3>{cat}</h3>
             <div className="preset-grid">
               {PRESETS.filter((p) => p.category === cat).map((p) => (

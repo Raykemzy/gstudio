@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { TShirtParams } from '../model/schema';
+import { garmentHandles, garmentOutline, type GarmentHandle, type GarmentParams } from '../garments';
 import { clampPanelPoint, fromModel, type Panel } from '../model/style';
 import type { NeckSurface } from '../geometry/outline';
-import { getHandles, type Handle } from '../geometry/handles';
 import { bounds, type Vec } from '../geometry/polygon';
-import { garmentPaths, toView, viewSign } from '../render/paths';
+import { toView, viewSign } from '../render/paths';
 import { flatView, panelFrame, panelModelPoints, panelPath } from '../render/layers';
 
 interface Props {
-  params: TShirtParams;
+  params: GarmentParams;
   surface: NeckSurface;
   /** Outline of another saved design to overlay for comparison. */
-  compare?: { params: TShirtParams; name: string } | null;
+  compare?: { params: GarmentParams; name: string } | null;
   /** Called for every pointer move during a drag. Returns an error message if the move was rejected. */
-  onDrag: (handle: Handle, pointer: { x: number; y: number }, gestureId: string) => string | null;
+  onDrag: (handle: GarmentHandle, pointer: { x: number; y: number }, gestureId: string) => string | null;
   onDragEnd: () => void;
   /** Panel editing. */
   selectedPanelId: string | null;
@@ -26,7 +25,7 @@ interface Props {
 const GRID = 10;
 const coarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
-type Drag = { kind: 'handle'; handle: Handle; gesture: string } | { kind: 'point'; panel: Panel; index: number; gesture: string };
+type Drag = { kind: 'handle'; handle: GarmentHandle; gesture: string } | { kind: 'point'; panel: Panel; index: number; gesture: string };
 type Box = { x: number; y: number; w: number; h: number };
 /** What a tap (press without moving) does, depending on where it landed. */
 type TapAction = 'toggle-dots' | 'show-dots' | { panel: string };
@@ -39,7 +38,7 @@ export function Editor2D(props: Props) {
   const { params, surface, compare, onDrag, onDragEnd, selectedPanelId, selectedPoint, onSelectPanel, onSelectPoint, onPanelChange } = props;
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const [hover, setHover] = useState<Handle | null>(null);
+  const [hover, setHover] = useState<GarmentHandle | null>(null);
   const [blocked, setBlocked] = useState(false);
   const frozenBox = useRef<string | null>(null);
   /** Tapping empty canvas hides the dots so the garment can be seen clean. */
@@ -59,8 +58,8 @@ export function Editor2D(props: Props) {
   }, []);
 
   const view = useMemo(() => flatView(params, surface), [params, surface]);
-  const comparePaths = useMemo(() => (compare ? garmentPaths(compare.params, surface) : null), [compare, surface]);
-  const handles = useMemo(() => getHandles(params, surface), [params, surface]);
+  const comparePaths = useMemo(() => (compare ? flatView(compare.params, surface) : null), [compare, surface]);
+  const handles = useMemo(() => garmentHandles(params, surface), [params, surface]);
   const panel = params.style.panels.find((p) => p.id === selectedPanelId) ?? null;
   const editingPanel = panel && panel.surface === surface ? panel : null;
   const frame = panelFrame(params);
@@ -261,8 +260,14 @@ export function Editor2D(props: Props) {
   for (let y = Math.ceil(vy / GRID) * GRID; y <= vy + vh; y += GRID)
     gridLines.push(<line key={`y${y}`} x1={vx} y1={y} x2={vx + vw} y2={y} className={y === 0 ? 'grid centre' : 'grid'} />);
 
-  const leftHem = toView(handles.find((h) => h.id === 'hemSide:left')!.pos, surface);
-  const rightHem = toView(handles.find((h) => h.id === 'hemSide:right')!.pos, surface);
+  // Side labels sit under the lowest point on each side of the garment.
+  const lowest = (sign: number) => {
+    const pts = garmentOutline(params, surface).filter((v) => sign * v.x > 0.5);
+    const low = pts.reduce((a, b) => (b.y > a.y ? b : a), pts[0] ?? { x: sign * 10, y: 0 });
+    return toView(low, surface);
+  };
+  const leftHem = lowest(1);
+  const rightHem = lowest(-1);
   const shownHandle = drag?.kind === 'handle' ? drag.handle : hover;
   const clipId = `garment-clip-${surface}`;
 
@@ -293,7 +298,7 @@ export function Editor2D(props: Props) {
       >
         {gridLines}
         <text x={vx + r} y={vy + vh - r} className="scale-label" fontSize={r * 1.6}>grid = 10 cm</text>
-        {comparePaths && <path d={comparePaths.outline} className="compare" />}
+        {comparePaths && <path d={comparePaths.clip} className="compare" />}
         <clipPath id={clipId}><path d={view.clip} /></clipPath>
         <clipPath id={`${clipId}-body`}><path d={view.bodyClip} /></clipPath>
         {view.layers.map((l, i) => (

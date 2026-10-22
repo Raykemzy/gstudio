@@ -1,8 +1,10 @@
-import type { TShirtParams } from '../model/schema';
+import type { GarmentParams } from '../garments';
+import { garmentDef } from '../garments';
+import type { FlatPart } from '../garments/types';
 import { toModel, type Panel, type PanelFrame } from '../model/style';
-import { buildOutline, neckCurve, offsetNeck, sidePoints, type NeckSurface } from '../geometry/outline';
-import type { Vec } from '../geometry/polygon';
-import { garmentPaths, viewSign } from './paths';
+import type { NeckSurface } from '../geometry/outline';
+import { bounds, type Vec } from '../geometry/polygon';
+import { toView, viewSign } from './paths';
 
 /**
  * The dressed garment as an ordered list of drawable layers (bottom first), in VIEW
@@ -33,7 +35,7 @@ export interface FlatView {
   clip: string;
   /** The body without sleeves, for panels that stay off the sleeves. */
   bodyClip: string;
-  bounds: ReturnType<typeof garmentPaths>['bounds'];
+  bounds: ReturnType<typeof bounds>;
 }
 
 export const OUTLINE_INK = '#1f2430';
@@ -61,8 +63,8 @@ function smoothClosedPath(points: Vec[], surface: NeckSurface): string {
   return d + ' Z';
 }
 
-export function panelFrame(p: TShirtParams): PanelFrame {
-  return { leftHalf: p.left.chestHalf, rightHalf: p.right.chestHalf, length: p.core.bodyLength };
+export function panelFrame(p: GarmentParams): PanelFrame {
+  return garmentDef(p).panelFrame(p);
 }
 
 /** A panel's points in the model frame; the mirror copy flips across the centre line. */
@@ -81,22 +83,28 @@ function seamInk(bodyColor: string): string {
   return lum < 0.45 ? 'rgba(232,234,238,0.55)' : 'rgba(31,36,48,0.6)';
 }
 
-export function flatView(p: TShirtParams, surface: NeckSurface): FlatView {
-  const style = p.style;
-  const g = garmentPaths(p, surface);
-  const o = buildOutline(p, surface);
-  const seam = seamInk(style.body.color);
-  const layers: Layer[] = [{ kind: 'body', d: g.outline, fill: style.body.color, clipped: false }];
+function partLayer(part: FlatPart, surface: NeckSurface, style: GarmentParams['style'], seam: string): Layer {
+  const kind: Layer['kind'] = part.kind === 'detail' ? 'seam' : part.kind;
+  return {
+    kind,
+    d: linePath(part.points, surface, part.closed),
+    fill: part.fill ? style[part.fill].color : undefined,
+    // Hidden lines sit over the background, so they are always dark.
+    stroke: part.stroke ? (part.kind === 'hidden' ? 'rgba(31,36,48,0.6)' : seam) : undefined,
+    weight: part.weight,
+    dashed: part.dashed,
+    clipped: part.clip !== 'none',
+    bodyOnly: part.clip === 'body',
+  };
+}
 
-  // Sleeves: from the shoulder point out to the cuff and back to the armpit.
-  const armholes: Vec[][] = [];
-  for (const side of ['left', 'right'] as const) {
-    const sp = sidePoints(p, side);
-    if (p[side].sleeveLength > 0.5) {
-      layers.push({ kind: 'sleeve', d: linePath([sp.shoulder, sp.sleeveTop, sp.sleeveBottom, sp.underarm], surface, true), fill: style.sleeves.color, clipped: true });
-    }
-    armholes.push([sp.shoulder, sp.underarm]);
-  }
+export function flatView(p: GarmentParams, surface: NeckSurface): FlatView {
+  const style = p.style;
+  const parts = garmentDef(p).flatParts(p, surface);
+  const seam = seamInk(style.body.color);
+  const outlinePath = linePath(parts.outline, surface, true);
+  const layers: Layer[] = [{ kind: 'body', d: outlinePath, fill: style.body.color, clipped: false }];
+  layers.push(...parts.under.map((part) => partLayer(part, surface, style, seam)));
 
   const frame = panelFrame(p);
   const panelEdges: Layer[] = [];
@@ -109,19 +117,9 @@ export function flatView(p: TShirtParams, surface: NeckSurface): FlatView {
       if (panel.seam) panelEdges.push({ kind: 'seam', d, stroke: seam, weight: 0.5, clipped: true, bodyOnly, panelId: panel.id, mirrorCopy });
     }
   }
-
-  if (p.core.collarWidth > 0) {
-    const inner = offsetNeck(o.neck, p.core.collarWidth);
-    layers.push({ kind: 'rib', d: linePath([...o.neck, ...inner.reverse()], surface, true), fill: style.rib.color, stroke: seam, weight: 0.4, clipped: true });
-  }
-  if (style.armholeSeam) for (const a of armholes) layers.push({ kind: 'seam', d: linePath(a, surface, false), stroke: seam, weight: 0.5, clipped: true });
   layers.push(...panelEdges);
-  // The back neckline seen through the front opening sits over the background, so it is always dark.
-  if (surface === 'front') layers.push({ kind: 'hidden', d: linePath(neckCurve(p, 'back'), surface, false), stroke: 'rgba(31,36,48,0.6)', weight: 0.5, dashed: true, clipped: false });
-  layers.push({ kind: 'outline', d: g.outline, stroke: OUTLINE_INK, weight: 1, clipped: false });
+  layers.push(...parts.over.map((part) => partLayer(part, surface, style, seam)));
+  layers.push({ kind: 'outline', d: outlinePath, stroke: OUTLINE_INK, weight: 1, clipped: false });
 
-  // Body only: the outline with the four sleeve corners removed, so it runs shoulder point -> armpit.
-  const sleevePts = (['left', 'right'] as const).flatMap((side) => (p[side].sleeveLength > 0.5 ? [o.sides[side].sleeveTop, o.sides[side].sleeveBottom] : []));
-  const bodyPoly = o.polygon.filter((v) => !sleevePts.some((q) => Math.abs(q.x - v.x) < 1e-9 && Math.abs(q.y - v.y) < 1e-9));
-  return { layers, clip: g.outline, bodyClip: linePath(bodyPoly, surface, true), bounds: g.bounds };
+  return { layers, clip: outlinePath, bodyClip: linePath(parts.body, surface, true), bounds: bounds(parts.outline.map((v) => toView(v, surface))) };
 }

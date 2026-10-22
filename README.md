@@ -21,7 +21,8 @@ npm run build && npm start   # production build served on http://localhost:4173
 The AI endpoints run as serverless functions in `api/ai/`. Saved designs live in each visitor's own browser storage.
 
 ## What you can do
-- Start from one of 21 starter shapes (**New**), grouped as Essentials, Oversized, Cropped, Sleeves, Necklines & hems and Experimental. Every shape stays fully editable.
+- **T-shirts, pants, cargos and shorts.** Start from a shape under **New**: 21 tees, plus pants (straight, wide leg, baggy cargo, jogger, cargo jogger, flared, balloon) and shorts (classic, long baggy, cargo, short). Every shape stays fully editable.
+- Pants: drag the waist corners, crotch (rise), thighs, knees and hems. Switch on cargo pockets, elastic waist or jogger cuffs, fly stitching and back pockets.
 - Colour the body, sleeves and neck rib, and add **panels** for colour blocking (side curves, yoke, hem band, diagonal split, stripes, arch). Drag a panel's squares to reshape it, tap **+** to add points, mirror it across both sides, and keep it off the sleeves if you like.
 - Drag the blue dots on the 2D outline, or use the sliders and number boxes. Both edit the same data.
 - Switch between **Symmetric** and **Asymmetric** above the garment. Asymmetric lets each side have its own measurements, e.g. a diagonal hem or uneven sleeves. Going back to symmetric copies the wearer's left side onto the right, and Undo reverses that.

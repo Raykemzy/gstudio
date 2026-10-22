@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultParams } from '../src/model/schema';
+import type { TShirtParams } from '../src/model/schema';
 import { PRESETS } from '../src/model/presets';
 import { formatMeasure, graded, measurementCsv, pointsOfMeasure, SIZES, type Pom } from '../src/model/pom';
 
@@ -34,7 +35,7 @@ describe('points of measure', () => {
   });
 
   it('reports left and right separately on asymmetric designs', () => {
-    const asym = pointsOfMeasure(PRESETS.find((x) => x.id === 'asymmetric')!.params());
+    const asym = pointsOfMeasure((PRESETS.find((x) => x.id === 'asymmetric')!.params() as TShirtParams));
     const length = byCode(asym, 'K').value;
     expect(Array.isArray(length)).toBe(true);
     const [l, r] = length as [number, number];
@@ -43,15 +44,15 @@ describe('points of measure', () => {
   });
 
   it('leaves out measurements that do not apply', () => {
-    const sleeveless = pointsOfMeasure(PRESETS.find((x) => x.id === 'muscle')!.params());
+    const sleeveless = pointsOfMeasure((PRESETS.find((x) => x.id === 'muscle')!.params() as TShirtParams));
     expect(sleeveless.some((m) => 'MNO'.includes(m.code))).toBe(false);
-    const crop = pointsOfMeasure(PRESETS.find((x) => x.id === 'cropped')!.params()); // 48 cm long, armpit at 29 cm
+    const crop = pointsOfMeasure((PRESETS.find((x) => x.id === 'cropped')!.params() as TShirtParams)); // 48 cm long, armpit at 29 cm
     expect(crop.some((m) => m.code === 'I')).toBe(false); // too short for a waist 20 cm below the armpit
   });
 
   it('every preset produces finite, positive measurements', () => {
     for (const pr of PRESETS)
-      for (const m of pointsOfMeasure(pr.params())) for (const v of [m.value].flat()) expect(Number.isFinite(v) && v > 0, `${pr.id} ${m.code}`).toBe(true);
+      for (const m of pointsOfMeasure((pr.params() as TShirtParams))) for (const v of [m.value].flat()) expect(Number.isFinite(v) && v > 0, `${pr.id} ${m.code}`).toBe(true);
   });
 });
 
@@ -70,7 +71,7 @@ describe('grading and output', () => {
   });
 
   it('writes a spreadsheet with one row per measurement and every size', () => {
-    const csv = measurementCsv(defaultParams(), { styleName: 'Test, "tee"', base: 'M', unit: 'cm' });
+    const csv = measurementCsv(pointsOfMeasure(defaultParams()), { styleName: 'Test, "tee"', base: 'M', unit: 'cm' });
     const lines = csv.trim().split('\n');
     expect(lines[0]).toBe('Style,"Test, ""tee"""');
     const header = lines.find((l) => l.startsWith('POM,'))!;

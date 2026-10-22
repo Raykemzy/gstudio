@@ -1,3 +1,4 @@
+import { newDesign } from '../src/model/design';
 /**
  * Stress tests: thousands of random designs and random editing sessions, checked
  * against rules that must always hold. Seeded, so any failure reproduces exactly.
@@ -14,7 +15,7 @@ import {
   SIDE_FIELDS,
   SIDE_KEYS,
   cloneParams,
-  newDesign,
+  
   paramsEqual,
   type FieldSpec,
   type TShirtParams,
@@ -82,6 +83,7 @@ function randomParams(r: Rng): TShirtParams {
   const left = side();
   const mirror = r.next() < 0.5;
   return {
+    kind: 'tshirt',
     core: {
       ...(Object.fromEntries(CORE_KEYS.map((k) => [k, r.field(CORE_FIELDS[k])])) as Record<(typeof CORE_KEYS)[number], number>),
       neckStyle: r.pick(NECK_STYLES),
@@ -206,7 +208,7 @@ describe('stress: every valid design satisfies all the rules', () => {
     let slowest = 0;
     for (let seed = 20_001; checked < n(120); seed++) {
       const r = rng(seed);
-      const p = r.next() < 0.5 ? randomParams(r) : randomWalk(r, r.pick(PRESETS).params(), 40);
+      const p = r.next() < 0.5 ? randomParams(r) : randomWalk(r, (r.pick(PRESETS.filter((x) => x.params().kind === 'tshirt')).params() as TShirtParams), 40);
       if (validateParams(p).length) continue;
       const t = performance.now();
       const why = checkValidDesign(p);
@@ -222,7 +224,7 @@ describe('stress: random editing sessions', () => {
   it(`never leaves a valid design invalid, and undo/redo replays exactly`, () => {
     for (let seed = 30_001; seed < 30_001 + n(40); seed++) {
       const r = rng(seed);
-      const history = new History<TShirtParams>(r.pick(PRESETS).params());
+      const history = new History<TShirtParams>((r.pick(PRESETS.filter((x) => x.params().kind === 'tshirt')).params() as TShirtParams));
       const committed: TShirtParams[] = [history.present];
       for (let step = 0; step < 150; step++) {
         const p = history.present;

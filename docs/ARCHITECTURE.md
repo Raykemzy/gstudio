@@ -99,6 +99,25 @@ Factory measurements are **calculated from the design** the way a factory measur
 - **Sizes:** the design is the sample size (M by default), and XS–XXL are graded from it.
 - **Output:** the in-app sheet (cm or inches), a CSV laid out like the templates' measurement tab, and a table under the front/back flats in the PNG/SVG export.
 
+### Garment types (`src/garments/`)
+Each garment type is one module implementing `GarmentDef` (`garments/types.ts`). It supplies:
+- its fields and form layout;
+- its outline and flat-sketch parts (sleeves, ribs, seams, pockets, stitching);
+- its drag dots, mapped back to parameters;
+- its validation rules, 3D settings, panel frame and points of measure.
+
+The editor, 3D preview, export, measurement sheet and gallery only call the registry (`garments/index.ts`), never a garment directly. Adding a garment means writing one module and registering it.
+
+- **T-shirt** (`garments/tshirt.ts`): wraps the original tee code.
+- **Pants, cargos and shorts** (`garments/pants.ts`). Shorts are pants with a short inseam.
+  - **Model frame:** origin at the centre of the waist top, +y down.
+  - **Shared fields:** waist width, waistband height, rise.
+  - **Per leg:** thigh (as drawn from the front), knee, leg opening, inseam and leg angle, so legs can differ.
+  - **Options:** waistband or elastic waist, plain or elastic (jogger) cuffs, fly stitching, back pockets, cargo pockets.
+  - **Rules:** the legs may not cross the centre, and the waistband must fit inside the rise.
+  - **Measurements:** waist, waistband, front rise, hip (18 cm down), thigh (2.5 cm below the crotch), knee (33 cm below the crotch, long legs only), leg opening, inseam, outseam.
+- **File format v3:** `params.kind` identifies the garment, and `garmentType` must match it. v2 files migrate to `kind: 'tshirt'`.
+
 ## 3. Geometry and validation
 
 `src/geometry/outline.ts` derives named keypoints per side: neck side, shoulder point, sleeve top/bottom, underarm and hem side. Together with the sampled neckline and hem curves, these form one closed polygon. Neckline styles are functions `depth(x)`, so front, back and the outer silhouette (the higher of the two at each x) can be combined exactly.
@@ -172,5 +191,5 @@ The end goal is a simplified "Illustrator for clothing": design the shape, dress
 3. **Textures & patterns:** camo, mesh, acid wash, heather and stripes, or your own uploads, per panel. They show in 3D.
 4. **Graphics & text:** logos and prints on the front, back and sleeves, sized in cm.
 5. **Construction details:** raglan sleeves, rib cuffs and hem bands, gathered hems, stitch lines, pockets.
-6. **More garments:** long sleeve and sweatshirt, then hoodie, then pants.
+6. **More garments** (owner's order): ✅ pants/cargos and ✅ shorts, then hoodies, then caps.
 7. Photo to design, material library, visual polish.

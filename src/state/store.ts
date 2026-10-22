@@ -1,4 +1,4 @@
-import type { DesignRecord } from '../model/schema';
+import type { DesignRecord } from '../model/design';
 import { parseDesign, serializeDesign, type ParseResult } from './designFile';
 
 /**

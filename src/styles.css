@@ -128,6 +128,7 @@ textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; paddi
 .sheet { background: var(--panel); border-radius: 10px; padding: 16px 20px 20px; width: min(980px, 100%); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; }
 .sheet-head h2 { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; }
+.sheet .group-head { font-size: 15px; color: var(--ink); text-transform: none; letter-spacing: 0; margin: 22px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .sheet h3 { font-size: 13px; color: var(--muted); margin: 16px 0 8px; }
 .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .preset-card { display: flex; flex-direction: column; align-items: stretch; text-align: left; gap: 2px; padding: 8px; border-radius: 8px; }
@@ -151,7 +152,7 @@ textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; paddi
 .panel-list li.on { background: #eef3ff; }
 .panel-list small { color: var(--muted); font-size: 11px; }
 .panel-editor { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 6px; background: var(--bg); }
-.style-controls .toggle, .panel-editor .toggle { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0; }
+.controls .toggle, .style-controls .toggle, .panel-editor .toggle { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0; }
 .panel-editor .done { width: 100%; margin-top: 8px; }
 input.text { width: 100%; border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; grid-column: 1 / -1; }
 .section-details > summary { cursor: pointer; list-style: none; }

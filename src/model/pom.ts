@@ -29,7 +29,7 @@ export const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 export type Size = (typeof SIZES)[number];
 
 /** All x positions where the horizontal line at height y crosses the polygon. */
-function crossingsAtY(poly: Vec[], y: number): number[] {
+export function crossingsAtY(poly: Vec[], y: number): number[] {
   const xs: number[] = [];
   for (let i = 0; i < poly.length; i++) {
     const a = poly[i], b = poly[(i + 1) % poly.length];
@@ -135,8 +135,7 @@ export function formatMeasure(v: number | [number, number], unit: Unit): string 
 const csvCell = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 
 /** The measurement spec as CSV, laid out like the templates' measurement tab. */
-export function measurementCsv(p: TShirtParams, opts: { styleName: string; base: Size; unit: Unit }): string {
-  const poms = pointsOfMeasure(p);
+export function measurementCsv(poms: Pom[], opts: { styleName: string; base: Size; unit: Unit }): string {
   const rows: string[][] = [
     ['Style', opts.styleName],
     ['Base (sample) size', opts.base],

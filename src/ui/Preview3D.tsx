@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { TShirtParams } from '../model/schema';
+import type { GarmentParams } from '../garments';
 import { buildGarmentMesh } from '../geometry/mesh3d';
-import { buildOutline } from '../geometry/outline';
 import { flatView, type FlatView } from '../render/layers';
 import { drawFlatView } from '../render/canvas';
 
@@ -12,7 +11,7 @@ export interface Preview3DApi {
 }
 
 interface Props {
-  params: TShirtParams;
+  params: GarmentParams;
   /** Changes when a different design is opened: the camera re-frames it (unless the angle is locked). */
   designKey?: string;
   apiRef?: React.RefObject<Preview3DApi | null>;
@@ -241,22 +240,19 @@ export function Preview3D({ params, apiRef, designKey }: Props) {
       paintSkin(s.skins.back, flatView(params, 'back'), data.uvBox, true, params.style.body.color);
       s.ribMaterial.color.set(params.style.rib.color);
 
-      const outline = buildOutline(params, 'outer').polygon;
-      const seamGeo = new THREE.BufferGeometry().setFromPoints(outline.map((v) => new THREE.Vector3(v.x, -v.y, 0)));
+      const seamGeo = new THREE.BufferGeometry().setFromPoints(data.outline.map((v) => new THREE.Vector3(v.x, -v.y, 0)));
       s.seam.geometry.dispose();
       s.seam.geometry = seamGeo;
 
-      // Collar rib: a tube along each neckline, sized from the rib width.
+      // Rib lines (e.g. the neck rib on a tee): a tube along each one.
       s.rib.children.forEach((c) => (c as THREE.Mesh).geometry.dispose());
       s.rib.clear();
-      if (params.core.collarWidth > 0) {
-        for (const flat of [data.necklines.front, data.necklines.back]) {
-          const pts: THREE.Vector3[] = [];
-          for (let i = 0; i < flat.length; i += 3) pts.push(new THREE.Vector3(flat[i], flat[i + 1], flat[i + 2]));
-          if (pts.length < 2) continue;
-          const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, Math.max(0.3, params.core.collarWidth * 0.4), 8, false);
-          s.rib.add(new THREE.Mesh(tube, s.ribMaterial));
-        }
+      for (const flat of [data.ribs.front, data.ribs.back]) {
+        const pts: THREE.Vector3[] = [];
+        for (let i = 0; i < flat.length; i += 3) pts.push(new THREE.Vector3(flat[i], flat[i + 1], flat[i + 2]));
+        if (pts.length < 2) continue;
+        const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, data.ribs.radius, 8, false);
+        s.rib.add(new THREE.Mesh(tube, s.ribMaterial));
       }
 
       s.center.copy(geo.boundingSphere!.center);

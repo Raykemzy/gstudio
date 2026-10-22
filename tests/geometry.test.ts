@@ -1,3 +1,4 @@
+import { garmentDef, garmentOutline, validateDesign, type GarmentParams } from '../src/garments';
 import { PRESETS } from '../src/model/presets';
 import { describe, expect, it } from 'vitest';
 import { cloneParams, defaultParams, type TShirtParams } from '../src/model/schema';
@@ -7,7 +8,7 @@ import { applyHandleDrag, getHandles } from '../src/geometry/handles';
 import { buildGarmentMesh } from '../src/geometry/mesh3d';
 import { bounds, findSelfIntersection, type Vec } from '../src/geometry/polygon';
 
-function meshBounds(p: TShirtParams) {
+function meshBounds(p: GarmentParams) {
   const m = buildGarmentMesh(p);
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, maxZ = -Infinity;
   for (let i = 0; i < m.positions.length; i += 3) {
@@ -20,10 +21,11 @@ function meshBounds(p: TShirtParams) {
 
 describe('outline', () => {
   it('default and all presets are valid, simple polygons', () => {
+    // Every garment type, through the registry.
     for (const pr of PRESETS) {
       const p = pr.params();
-      expect(validateParams(p), pr.name).toEqual([]);
-      expect(findSelfIntersection(buildOutline(p).polygon)).toBeNull();
+      expect(validateDesign(p), pr.name).toEqual([]);
+      for (const surface of ['front', 'back'] as const) expect(findSelfIntersection(garmentOutline(p, surface)), pr.name).toBeNull();
     }
   });
 
@@ -54,7 +56,7 @@ describe('outline', () => {
   });
 
   it('asymmetric hems are preserved, not normalised', () => {
-    const p = PRESETS.find((x) => x.id === 'asymmetric')!.params();
+    const p = (PRESETS.find((x) => x.id === 'asymmetric')!.params() as TShirtParams);
     const o = buildOutline(p);
     expect(o.sides.left.hemSide.y).toBeGreaterThan(o.sides.right.hemSide.y + 20);
   });
@@ -64,7 +66,7 @@ describe('2D and 3D stay in sync', () => {
   it('3D width and height follow the 2D outline bounds', () => {
     for (const pr of PRESETS) {
       const p = pr.params();
-      const b2 = bounds(buildOutline(p, 'outer').polygon);
+      const b2 = bounds(garmentDef(p).mesh(p).outer);
       const b3 = meshBounds(p);
       expect(b3.minX).toBeCloseTo(b2.minX, 1);
       expect(b3.maxX).toBeCloseTo(b2.maxX, 1);

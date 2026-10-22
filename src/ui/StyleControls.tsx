@@ -1,9 +1,12 @@
 import { newId } from '../model/schema';
 import { PANEL_TEMPLATES, SWATCHES, type Fill, type GarmentStyle, type Panel } from '../model/style';
 import type { NeckSurface } from '../geometry/outline';
+import type { StyleLabels } from '../garments/types';
 
 interface Props {
   style: GarmentStyle;
+  /** What this garment calls its parts; parts it doesn't have are left out. */
+  labels: StyleLabels;
   surface: NeckSurface;
   selectedPanelId: string | null;
   selectedPoint: number | null;
@@ -41,7 +44,7 @@ function ColourPicker({ label, fill, onPick }: { label: string; fill: Fill; onPi
   );
 }
 
-export function StyleControls({ style, surface, selectedPanelId, selectedPoint, onChange, onSelectPanel, onSelectPoint }: Props) {
+export function StyleControls({ style, labels, surface, selectedPanelId, selectedPoint, onChange, onSelectPanel, onSelectPoint }: Props) {
   const stamp = () => Date.now();
   const setFill = (part: 'body' | 'sleeves' | 'rib', color: string, continuous: boolean) =>
     onChange({ ...style, [part]: { color } }, continuous ? `fill:${part}` : `fill:${part}:${stamp()}`);
@@ -104,13 +107,15 @@ export function StyleControls({ style, surface, selectedPanelId, selectedPoint, 
     <div className="style-controls">
       <details open>
         <summary>Colours</summary>
-        <ColourPicker label="Body" fill={style.body} onPick={(c, k) => setFill('body', c, k)} />
-        <ColourPicker label="Sleeves" fill={style.sleeves} onPick={(c, k) => setFill('sleeves', c, k)} />
-        <ColourPicker label="Neck rib" fill={style.rib} onPick={(c, k) => setFill('rib', c, k)} />
-        <label className="toggle" title="The line where each sleeve joins the body">
-          <input type="checkbox" checked={style.armholeSeam} onChange={(e) => onChange({ ...style, armholeSeam: e.target.checked }, `armhole-seam:${stamp()}`)} />
-          Show armhole seam (sleeve joining line)
-        </label>
+        <ColourPicker label={labels.body} fill={style.body} onPick={(c, k) => setFill('body', c, k)} />
+        {labels.sleeves && <ColourPicker label={labels.sleeves} fill={style.sleeves} onPick={(c, k) => setFill('sleeves', c, k)} />}
+        <ColourPicker label={labels.rib} fill={style.rib} onPick={(c, k) => setFill('rib', c, k)} />
+        {labels.armholeSeam && (
+          <label className="toggle" title="The line where each sleeve joins the body">
+            <input type="checkbox" checked={style.armholeSeam} onChange={(e) => onChange({ ...style, armholeSeam: e.target.checked }, `armhole-seam:${stamp()}`)} />
+            {labels.armholeSeam}
+          </label>
+        )}
       </details>
 
       <details open>

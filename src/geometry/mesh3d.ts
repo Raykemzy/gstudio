@@ -1,6 +1,6 @@
 import Delaunator from 'delaunator';
-import type { TShirtParams } from '../model/schema';
-import { buildOutline, neckCurve, neckY, outerNeckY, type NeckSurface } from './outline';
+import { garmentDef, type GarmentParams } from '../garments';
+import type { NeckSurface } from './outline';
 import { bounds, dist, signedArea, distToPolyline, pointInPolygon, resampleClosed, vec, type Vec } from './polygon';
 
 /**
@@ -27,8 +27,10 @@ export interface GarmentMesh {
   frontIndexCount: number;
   indices: Uint32Array;
   vertexCount: number;
-  /** Necklines lifted onto the inflated surfaces (xyz triples), for drawing the collar rib. */
-  necklines: { front: number[]; back: number[] };
+  /** The silhouette (model frame), for the 3D seam line. */
+  outline: Vec[];
+  /** Rib lines lifted onto the inflated surfaces (xyz triples), drawn as tubes. */
+  ribs: { front: number[]; back: number[]; radius: number };
 }
 
 export interface MeshOptions {
@@ -57,33 +59,31 @@ export function inflate(d: number, maxDepth: number): number {
   return maxDepth * Math.sqrt(1 - (1 - t) * (1 - t));
 }
 
-export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): GarmentMesh {
-  const maxDepth = opts.maxDepth ?? Math.min(13, Math.max(6, 0.36 * (p.left.chestHalf + p.right.chestHalf) / 2));
-  const outer = buildOutline(p, 'outer').polygon;
+export function buildGarmentMesh(p: GarmentParams, opts: MeshOptions = {}): GarmentMesh {
+  const spec = garmentDef(p).mesh(p);
+  const maxDepth = opts.maxDepth ?? spec.maxDepth;
+  const outer = spec.outer;
   // Keep the point count roughly constant: big garments get a slightly coarser mesh, so
   // rebuilds stay fast enough for smooth dragging. A regular tee keeps the 1.25 cm default.
   const h = opts.spacing ?? Math.max(1.25, Math.sqrt(Math.abs(signedArea(outer)) / TARGET_INTERIOR_POINTS));
-  const halfNeck = p.core.neckWidth / 2;
 
-  // Neckline curves that lie inside the silhouette become constrained rows of vertices,
-  // so the cut-out follows the curve instead of a jagged triangle edge.
-  const inner: Record<NeckSurface, Vec[]> = { front: [], back: [] };
-  for (const surface of ['front', 'back'] as const) {
-    inner[surface] = resampleOpen(neckCurve(p, surface), h * 0.75).filter((v) => v.y > outerNeckY(p, v.x) + h * 0.2);
-  }
+  // Guide curves inside the silhouette become rows of vertices, so cut-outs follow the
+  // curve instead of a jagged triangle edge.
+  const guides = spec.guides
+    .flatMap((row) => resampleOpen(row, h * 0.75))
+    .filter((v) => pointInPolygon(v, outer) && distToPolyline(v, outer, true) > h * 0.2);
 
-  const pts: Vec[] = [...resampleClosed(outer, h * 0.75), ...inner.front, ...inner.back];
+  const pts: Vec[] = [...resampleClosed(outer, h * 0.75), ...guides];
   const edgeDist: number[] = pts.map((v) => distToPolyline(v, outer, true));
-  const guides = [...inner.front, ...inner.back];
   const b = bounds(outer);
-  const neckBottom = Math.max(p.core.neckDepthFront, p.core.neckDepthBack);
+  const gb = guides.length ? bounds(guides) : null;
   for (let y = b.minY + h / 2; y < b.maxY; y += h) {
     for (let x = b.minX + h / 2; x < b.maxX; x += h) {
       const q = vec(x, y);
       if (!pointInPolygon(q, outer)) continue;
       const d = distToPolyline(q, outer, true);
       if (d < h * 0.5) continue;
-      if (Math.abs(x) < halfNeck + h && y < neckBottom + h && guides.some((g) => dist(g, q) < h * 0.5)) continue;
+      if (gb && x > gb.minX - h && x < gb.maxX + h && y > gb.minY - h && y < gb.maxY + h && guides.some((g) => dist(g, q) < h * 0.5)) continue;
       pts.push(q);
       edgeDist.push(d);
     }
@@ -92,8 +92,7 @@ export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): Garme
   const tri = Delaunator.from(pts, (v) => v.x, (v) => v.y).triangles;
   const n = pts.length;
   const depth = edgeDist.map((d) => inflate(d, maxDepth));
-  const inHole = (surface: NeckSurface, c: Vec) => Math.abs(c.x) < halfNeck && c.y < neckY(p, surface, c.x) - 1e-6;
-
+  const inHole = (surface: NeckSurface, c: Vec) => spec.hole?.[surface]?.(c) ?? false;
 
   const positions = new Float32Array(n * 2 * 3);
   const colors = new Float32Array(n * 2 * 3);
@@ -123,8 +122,8 @@ export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): Garme
     if (!inHole('back', centroid)) backIdx.push(n + a, n + c, n + bI);
   }
 
-  const lift = (surface: NeckSurface, sign: number) =>
-    resampleOpen(neckCurve(p, surface), h * 0.5).flatMap((v) => [v.x, -v.y, sign * inflate(distToPolyline(v, outer, true), maxDepth)]);
+  const lift = (line: Vec[] | undefined, sign: number) =>
+    line ? resampleOpen(line, h * 0.5).flatMap((v) => [v.x, -v.y, sign * inflate(distToPolyline(v, outer, true), maxDepth)]) : [];
   return {
     positions,
     colors,
@@ -133,6 +132,7 @@ export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): Garme
     frontIndexCount: idx.length,
     indices: Uint32Array.from([...idx, ...backIdx]),
     vertexCount: n * 2,
-    necklines: { front: lift('front', 1), back: lift('back', -1) },
+    outline: outer,
+    ribs: { front: lift(spec.ribs?.front, 1), back: lift(spec.ribs?.back, -1), radius: spec.ribRadius ?? 0.5 },
   };
 }

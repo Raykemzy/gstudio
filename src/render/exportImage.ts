@@ -1,6 +1,6 @@
-import type { TShirtParams } from '../model/schema';
 import { flatView, type FlatView } from './layers';
-import { SIZES, formatMeasure, graded, pointsOfMeasure, type Size, type Unit } from '../model/pom';
+import { SIZES, formatMeasure, graded, type Size, type Unit } from '../model/pom';
+import { garmentPoms, type GarmentParams } from '../garments';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -26,8 +26,8 @@ export interface ExportOptions {
 }
 
 /** The measurement table (points of measure x sizes) as SVG text; returns its markup and height. */
-function specTable(p: TShirtParams, x: number, y: number, w: number, fs: number, opts: ExportOptions): { svg: string; height: number } {
-  const poms = pointsOfMeasure(p);
+function specTable(p: GarmentParams, x: number, y: number, w: number, fs: number, opts: ExportOptions): { svg: string; height: number } {
+  const poms = garmentPoms(p);
   const rowH = fs * 1.7;
   // Column widths as fractions of the table width.
   const fr = [0.05, 0.27, ...SIZES.map(() => 0.1), 0.08];
@@ -51,7 +51,7 @@ function specTable(p: TShirtParams, x: number, y: number, w: number, fs: number,
     parts.push(`<line x1="${x}" y1="${y + rowH * (row + 1)}" x2="${x + w}" y2="${y + rowH * (row + 1)}" stroke="#d5d9e0" stroke-width="${fs * 0.04}"/>`);
   });
   const height = rowH * (poms.length + 1);
-  parts.push(`<text x="${x}" y="${y + height + fs * 1.4}" font-size="${fs * 0.75}" fill="#646b78">HPS = high point shoulder (beside the neck). L / R = wearer's left / right. Sizes graded from the sample with typical steps; tolerances are typical QC values. Confirm both with your factory.</text>`);
+  parts.push(`<text x="${x}" y="${y + height + fs * 1.4}" font-size="${fs * 0.75}" fill="#646b78">${p.kind === 'tshirt' ? 'HPS = high point shoulder (beside the neck). ' : ''}L / R = wearer's left / right. Sizes graded from the sample with typical steps; tolerances are typical QC values. Confirm both with your factory.</text>`);
   return { svg: parts.join('\n    '), height: height + fs * 2 };
 }
 
@@ -59,7 +59,7 @@ function specTable(p: TShirtParams, x: number, y: number, w: number, fs: number,
  * A standalone flat sketch: front and back side by side, then the measurement
  * table. Only the design itself, no app chrome.
  */
-export function buildExportSvg(p: TShirtParams, title: string, opts: ExportOptions = { unit: 'cm', base: 'M' }): string {
+export function buildExportSvg(p: GarmentParams, title: string, opts: ExportOptions = { unit: 'cm', base: 'M' }): string {
   const front = flatView(p, 'front');
   const back = flatView(p, 'back');
   const pad = 10;

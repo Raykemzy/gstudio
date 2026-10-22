@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { cloneParams, newDesign, newId, paramsEqual, type DesignRecord, type TShirtParams } from '../model/schema';
-import { validateParams, type Issue } from '../model/validate';
-import { applyHandleDrag, type Handle } from '../geometry/handles';
+import { newId, paramsEqual } from '../model/schema';
+import { newDesign, type DesignRecord } from '../model/design';
+import { cloneGarment, dragHandle, garmentDef, garmentPoms, validateDesign, type GarmentHandle, type GarmentParams } from '../garments';
+import type { Issue } from '../model/validate';
 import type { NeckSurface } from '../geometry/outline';
 import { History } from '../state/history';
 import { DesignStore, MemoryStorage, StorageFullError, type DesignSummary } from '../state/store';
@@ -44,7 +45,7 @@ function openStorage(): { storage: Storage; persistent: boolean } {
 }
 
 interface Saved {
-  params: TShirtParams;
+  params: GarmentParams;
   name: string;
   imageKey: string | null;
 }
@@ -74,8 +75,8 @@ export function App() {
   const store = useMemo(() => new DesignStore(storage), [storage]);
   const init = useMemo(() => initialDesign(store, storage), [store, storage]);
 
-  const history = useRef(new History<TShirtParams>(init.design.params));
-  const [params, setParams] = useState<TShirtParams>(init.design.params);
+  const history = useRef(new History<GarmentParams>(init.design.params));
+  const [params, setParams] = useState<GarmentParams>(init.design.params);
   const [design, setDesign] = useState<DesignRecord>(init.design);
   const [saved, setSaved] = useState<Saved | null>(init.saved);
   const [image, setImage] = useState<string | null>(init.image);
@@ -97,16 +98,19 @@ export function App() {
   const preview = useRef<Preview3DApi | null>(null);
 
   const dirty = !saved || !paramsEqual(params, saved.params) || design.name !== saved.name || (design.referenceImage?.key ?? null) !== saved.imageKey;
+  // Work worth protecting: edits to a saved design, or any edit at all to a new one.
+  // A brand-new design nobody has touched yet is not worth a "discard?" prompt.
+  const hasUnsavedWork = saved ? dirty : history.current.canUndo || design.referenceImage !== null || design.origin.kind === 'import' || design.origin.kind === 'ai' || design.origin.kind === 'offline-interpreter';
   const refreshList = useCallback(() => setList(store.list()), [store]);
 
   // ----- editing -----
 
   /** The single entry point for every edit (controls, handles, mirror toggle). */
   const commit = useCallback(
-    (next: TShirtParams, key: string): string | null => {
-      const issues = validateParams(next);
+    (next: GarmentParams, key: string): string | null => {
+      const issues = validateDesign(next);
       // A valid design is never allowed to become invalid. A design that was loaded already broken can be edited freely while it is being fixed.
-      if (issues.length && validateParams(history.current.present).length === 0) return issues[0].message;
+      if (issues.length && validateDesign(history.current.present).length === 0) return issues[0].message;
       history.current.commit(next, key);
       setParams(next);
       setWarnings(issues);
@@ -116,29 +120,29 @@ export function App() {
   );
 
   const onDrag = useCallback(
-    (handle: Handle, pointer: { x: number; y: number }, gesture: string) => commit(applyHandleDrag(history.current.present, handle, pointer, surface), gesture),
+    (handle: GarmentHandle, pointer: { x: number; y: number }, gesture: string) => commit(dragHandle(history.current.present, handle, pointer, surface), gesture),
     [commit, surface],
   );
 
   const undo = useCallback(() => {
     const p = history.current.undo();
     setParams(p);
-    setWarnings(validateParams(p));
+    setWarnings(validateDesign(p));
     bump((n) => n + 1);
   }, []);
   const redo = useCallback(() => {
     const p = history.current.redo();
     setParams(p);
-    setWarnings(validateParams(p));
+    setWarnings(validateDesign(p));
     bump((n) => n + 1);
   }, []);
 
   // ----- design lifecycle -----
 
-  const confirmDiscard = () => !dirty || window.confirm('You have unsaved changes to this design. Discard them?');
+  const confirmDiscard = () => !hasUnsavedWork || window.confirm('You have unsaved changes to this design. Discard them?');
 
-  const openRecord = (d: DesignRecord, s: Saved | null, img: string | null, w: Issue[] = validateParams(d.params)) => {
-    history.current.reset(cloneParams(d.params));
+  const openRecord = (d: DesignRecord, s: Saved | null, img: string | null, w: Issue[] = validateDesign(d.params)) => {
+    history.current.reset(cloneGarment(d.params));
     setParams(history.current.present);
     setDesign(d);
     setSaved(s);
@@ -170,6 +174,7 @@ export function App() {
     const pr = findPreset(presetId)!;
     setGalleryOpen(false);
     openRecord(newDesign(pr.params(), pr.id === 'classic' ? 'Untitled tee' : pr.name, { kind: 'preset' }), null, null);
+    setSurface('front');
     setNotice({ kind: 'info', text: `New design from "${pr.name}". It isn't saved until you press Save.` });
   };
 
@@ -184,7 +189,7 @@ export function App() {
   };
 
   const save = () => {
-    const out = persist({ ...design, params: cloneParams(params) }, image);
+    const out = persist({ ...design, params: cloneGarment(params) }, image);
     if (!out) return;
     if (saved?.imageKey && saved.imageKey !== out.referenceImage?.key) store.deleteImage(saved.imageKey);
     setDesign(out);
@@ -196,7 +201,7 @@ export function App() {
 
   /** Save the current edits as a NEW design, leaving the original as it was last saved. */
   const saveAsCopy = () => {
-    const copy = duplicateDesign({ ...design, params: cloneParams(params) }, `${design.name} v${design.lineage.iteration + 1}`);
+    const copy = duplicateDesign({ ...design, params: cloneGarment(params) }, `${design.name} v${design.lineage.iteration + 1}`);
     if (copy.referenceImage) copy.referenceImage = { ...copy.referenceImage, key: newId() };
     const out = persist(copy, image);
     if (!out) return;
@@ -228,7 +233,7 @@ export function App() {
   /** Symmetric copies the wearer's left side onto the right; undo brings the asymmetric version back. */
   const setMirror = (on: boolean) => {
     if (on === params.mirror) return;
-    const next = cloneParams(params);
+    const next = cloneGarment(params);
     next.mirror = on;
     const differed = JSON.stringify(next.left) !== JSON.stringify(next.right);
     if (on) next.right = { ...next.left };
@@ -246,7 +251,7 @@ export function App() {
   // ----- colours & panels -----
 
   const onStyleChange = (style: GarmentStyle, key: string) => {
-    const err = commit({ ...cloneParams(params), style }, key);
+    const err = commit({ ...cloneGarment(params), style }, key);
     if (err) setNotice({ kind: 'error', text: err });
   };
   const onPanelChange = (panel: Panel, gesture: string) =>
@@ -285,7 +290,7 @@ export function App() {
 
   const exportSpecCsv = () => {
     // The BOM marker makes Excel read the file as UTF-8.
-    const csv = '\ufeff' + measurementCsv(params, { styleName: design.name, ...specPrefs });
+    const csv = '\ufeff' + measurementCsv(garmentPoms(params), { styleName: design.name, ...specPrefs });
     downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${safeFilename(design.name)}-measurements.csv`);
   };
 
@@ -361,11 +366,11 @@ export function App() {
   }, []);
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
-      if (dirty) e.preventDefault();
+      if (hasUnsavedWork) e.preventDefault();
     };
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);
-  }, [dirty]);
+  }, [hasUnsavedWork]);
 
   const compare = useMemo(() => {
     if (!compareId) return null;
@@ -408,6 +413,7 @@ export function App() {
             <h2>Colours &amp; panels</h2>
             <StyleControls
               style={params.style}
+              labels={garmentDef(params).styleLabels}
               surface={surface}
               selectedPanelId={selectedPanelId}
               selectedPoint={selectedPoint}
@@ -499,6 +505,7 @@ export function App() {
               </select>
               <button className="primary" onClick={generate} disabled={busy || !prompt.trim()}>{busy ? 'Generating…' : 'Generate'}</button>
             </div>
+            <p className="note">Generates T-shirt concepts for now; pants and shorts start from the shapes under New.</p>
             {!ai.available && <p className="note">AI generation is off (no key on the server). The offline matcher understands common garment words. Everything else works without AI.</p>}
             {result && 'error' in result && <p className="error">{result.error}</p>}
             {result && !('error' in result) && (

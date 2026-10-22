@@ -1,9 +1,11 @@
+import { newDesign } from '../src/model/design';
 import { PRESETS } from '../src/model/presets';
 import { describe, expect, it } from 'vitest';
 import { History } from '../src/state/history';
 import { DesignStore, MemoryStorage } from '../src/state/store';
 import { duplicateDesign, parseDesign, serializeDesign } from '../src/state/designFile';
-import { defaultParams, newDesign, paramsEqual } from '../src/model/schema';
+import { defaultParams, paramsEqual } from '../src/model/schema';
+import type { TShirtParams } from '../src/model/schema';
 
 describe('history', () => {
   it('undoes and redoes several edits in order', () => {
@@ -44,7 +46,7 @@ describe('persistence', () => {
   it('saves and reopens a design with identical parameters', () => {
     const storage = new MemoryStorage();
     const store = new DesignStore(storage);
-    const d = newDesign(PRESETS.find((p) => p.id === 'asymmetric')!.params(), 'Asym test');
+    const d = newDesign((PRESETS.find((p) => p.id === 'asymmetric')!.params() as TShirtParams), 'Asym test');
     store.save(d);
     // simulate a reload: brand-new store over the same storage
     const reopened = new DesignStore(storage).load(d.id);
@@ -61,10 +63,10 @@ describe('persistence', () => {
     const store = new DesignStore(new MemoryStorage());
     const original = store.save(newDesign(defaultParams(), 'Original'));
     const copy = duplicateDesign(original, 'Variant');
-    copy.params.left.chestHalf = 40;
+    (copy.params as TShirtParams).left.chestHalf = 40;
     store.save(copy);
     const reloaded = store.load(original.id);
-    expect(reloaded.ok && reloaded.design.params.left.chestHalf).toBe(26);
+    expect(reloaded.ok && (reloaded.design.params as TShirtParams).left.chestHalf).toBe(26);
     expect(copy.id).not.toBe(original.id);
     expect(copy.lineage).toEqual({ parentId: original.id, iteration: 2 });
     expect(store.list()).toHaveLength(2);
@@ -81,7 +83,7 @@ describe('persistence', () => {
 
   it('opens a structurally valid design with impossible geometry, flagging it instead of failing', () => {
     const d = newDesign(defaultParams(), 'x');
-    d.params.core.neckWidth = 45;
+    (d.params as TShirtParams).core.neckWidth = 45;
     const r = parseDesign(serializeDesign(d));
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.warnings.length).toBeGreaterThan(0);

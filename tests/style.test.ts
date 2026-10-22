@@ -1,5 +1,7 @@
+import { SCHEMA_VERSION } from '../src/model/design';
+import { newDesign } from '../src/model/design';
 import { describe, expect, it } from 'vitest';
-import { defaultParams, newDesign, cloneParams, type TShirtParams } from '../src/model/schema';
+import { defaultParams, cloneParams, type TShirtParams } from '../src/model/schema';
 import { PANEL_TEMPLATES, fromModel, toModel, styleSchema, type Panel } from '../src/model/style';
 import { flatView, panelFrame, panelModelPoints } from '../src/render/layers';
 import { buildExportSvg } from '../src/render/exportImage';
@@ -104,7 +106,8 @@ describe('export and files', () => {
     const r = parseDesign(JSON.stringify(v2));
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect(r.design.schemaVersion).toBe(2);
+      expect(r.design.schemaVersion).toBe(SCHEMA_VERSION);
+      expect(r.design.params.kind).toBe('tshirt');
       expect(r.design.params.style).toEqual(defaultParams().style);
     }
   });

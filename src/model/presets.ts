@@ -1,4 +1,6 @@
 import { defaultParams, type CoreParams, type SideParams, type TShirtParams } from './schema';
+import type { GarmentParams } from '../garments';
+import { pants } from '../garments/pants';
 
 /**
  * Starter pack of silhouettes, authored for this editor (generic shapes, not copies
@@ -11,10 +13,22 @@ export interface Preset {
   name: string;
   category: PresetCategory;
   description: string;
-  params: () => TShirtParams;
+  params: () => GarmentParams;
 }
 
-export const PRESET_CATEGORIES = ['Essentials', 'Oversized', 'Cropped', 'Sleeves', 'Necklines & hems', 'Experimental'] as const;
+export const PRESET_CATEGORIES = ['Essentials', 'Oversized', 'Cropped', 'Sleeves', 'Necklines & hems', 'Experimental', 'Pants & cargos', 'Shorts'] as const;
+
+/** Gallery headings: which garment each category belongs to. */
+export const CATEGORY_GROUP: Record<PresetCategory, string> = {
+  Essentials: 'T-shirts',
+  Oversized: 'T-shirts',
+  Cropped: 'T-shirts',
+  Sleeves: 'T-shirts',
+  'Necklines & hems': 'T-shirts',
+  Experimental: 'T-shirts',
+  'Pants & cargos': 'Bottoms',
+  Shorts: 'Bottoms',
+};
 export type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 
 /** Defaults overridden by `core` and `side`; `right` (if given) makes the preset asymmetric. */
@@ -206,6 +220,75 @@ export const PRESETS: Preset[] = [
       { bodyLength: 66, hemStyle: 'straight' },
       { chestHalf: 30, hemHalf: 26, shoulderHalf: 40, shoulderDrop: 0, armholeDepth: 26, sleeveLength: 18, sleeveOpening: 20, sleeveAngle: 15 },
     ),
+  },
+
+  // ----- Pants & cargos -----
+  { id: 'straight-pants', name: 'Straight pants', category: 'Pants & cargos', description: 'Regular rise, straight legs, plain hems.', params: pants({}, {}) },
+  {
+    id: 'wide-leg',
+    name: 'Wide leg',
+    category: 'Pants & cargos',
+    description: 'Full legs from hip to hem.',
+    params: pants({ rise: 31 }, { thighWidth: 31, kneeWidth: 31, legOpening: 33, legSplay: 4 }),
+  },
+  {
+    id: 'baggy-cargo',
+    name: 'Baggy cargo',
+    category: 'Pants & cargos',
+    description: 'Roomy legs with cargo pockets on the thighs.',
+    params: pants({ rise: 32, cargoPockets: true }, { thighWidth: 31, kneeWidth: 30, legOpening: 28, legSplay: 3, inseam: 80 }),
+  },
+  {
+    id: 'jogger',
+    name: 'Tapered jogger',
+    category: 'Pants & cargos',
+    description: 'Elastic waist and cuffs, legs narrowing to the ankle.',
+    params: pants({ waistStyle: 'elastic', cuffStyle: 'elastic', fly: false, waistbandHeight: 4.5 }, { thighWidth: 27.5, kneeWidth: 20, legOpening: 12.5, legSplay: -1, inseam: 74 }),
+  },
+  {
+    id: 'cargo-jogger',
+    name: 'Cargo jogger',
+    category: 'Pants & cargos',
+    description: 'Jogger cuffs with cargo pockets.',
+    params: pants({ waistStyle: 'elastic', cuffStyle: 'elastic', fly: false, cargoPockets: true }, { thighWidth: 29, kneeWidth: 22, legOpening: 13, legSplay: 0, inseam: 75 }),
+  },
+  {
+    id: 'flare',
+    name: 'Flared',
+    category: 'Pants & cargos',
+    description: 'Slim through the knee, flaring out at the hem.',
+    params: pants({}, { thighWidth: 26, kneeWidth: 18.5, legOpening: 31, legSplay: 4.5, inseam: 82 }),
+  },
+  {
+    id: 'balloon',
+    name: 'Balloon leg',
+    category: 'Pants & cargos',
+    description: 'Curved, full knees tapering back in at the hem.',
+    params: pants({ rise: 33 }, { thighWidth: 30, kneeWidth: 33, legOpening: 21, legSplay: 5, inseam: 76 }),
+  },
+
+  // ----- Shorts -----
+  { id: 'shorts', name: 'Classic shorts', category: 'Shorts', description: 'Above-the-knee shorts, straight legs.', params: pants({}, { thighWidth: 32, kneeWidth: 31, legOpening: 30, legSplay: 2, inseam: 18 }) },
+  {
+    id: 'long-shorts',
+    name: 'Long baggy shorts',
+    category: 'Shorts',
+    description: 'Wide shorts finishing below the knee.',
+    params: pants({ rise: 31 }, { thighWidth: 31, kneeWidth: 31, legOpening: 31, legSplay: 3, inseam: 32 }),
+  },
+  {
+    id: 'cargo-shorts',
+    name: 'Cargo shorts',
+    category: 'Shorts',
+    description: 'Knee-length shorts with cargo pockets.',
+    params: pants({ cargoPockets: true }, { thighWidth: 30, kneeWidth: 29.5, legOpening: 29, legSplay: 2, inseam: 26 }),
+  },
+  {
+    id: 'short-shorts',
+    name: 'Short shorts',
+    category: 'Shorts',
+    description: 'Very short legs with an elastic waist.',
+    params: pants({ waistStyle: 'elastic', fly: false }, { thighWidth: 28, kneeWidth: 28, legOpening: 28, legSplay: 2, inseam: 9 }),
   },
 ];
 

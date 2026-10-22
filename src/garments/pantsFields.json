@@ -1,0 +1,110 @@
+{
+  "core": {
+    "waistWidth": {
+      "label": "Waist width",
+      "help": "Across the top of the waistband, laid flat (half the waist all the way round).",
+      "min": 24,
+      "max": 80,
+      "step": 0.5,
+      "default": 40,
+      "group": "waist"
+    },
+    "waistbandHeight": {
+      "label": "Waistband height",
+      "help": "Height of the band at the top. 0 = no separate band.",
+      "min": 0,
+      "max": 10,
+      "step": 0.25,
+      "default": 4,
+      "group": "waist"
+    },
+    "rise": {
+      "label": "Rise",
+      "help": "From the top of the waist down to the crotch. Low-rise is shorter, high-rise longer.",
+      "min": 15,
+      "max": 50,
+      "step": 0.5,
+      "default": 29,
+      "group": "waist"
+    }
+  },
+  "side": {
+    "thighWidth": {
+      "label": "Thigh width",
+      "help": "Width of one leg at the crotch, as drawn from the front.",
+      "min": 16,
+      "max": 60,
+      "step": 0.5,
+      "default": 27,
+      "group": "legs"
+    },
+    "kneeWidth": {
+      "label": "Knee width",
+      "help": "Width of one leg about halfway down (mid-leg on shorts).",
+      "min": 10,
+      "max": 70,
+      "step": 0.5,
+      "default": 21.5,
+      "group": "legs"
+    },
+    "legOpening": {
+      "label": "Leg opening",
+      "help": "Width of one leg at the hem, laid flat.",
+      "min": 8,
+      "max": 80,
+      "step": 0.5,
+      "default": 20,
+      "group": "legs"
+    },
+    "inseam": {
+      "label": "Leg length (inseam)",
+      "help": "From the crotch down the inside of the leg to the hem. Short values make shorts.",
+      "min": 3,
+      "max": 95,
+      "step": 0.5,
+      "default": 79,
+      "group": "legs"
+    },
+    "legSplay": {
+      "label": "Leg angle",
+      "help": "Moves the bottom of each leg outwards (+) or inwards (\u2212): flares, wide stances, tapers.",
+      "min": -15,
+      "max": 35,
+      "step": 0.5,
+      "default": 1,
+      "group": "legs"
+    }
+  },
+  "enums": {
+    "waistStyle": {
+      "label": "Waist",
+      "options": [
+        "band",
+        "elastic"
+      ],
+      "default": "band"
+    },
+    "cuffStyle": {
+      "label": "Leg hem",
+      "options": [
+        "plain",
+        "elastic"
+      ],
+      "default": "plain"
+    }
+  },
+  "toggles": {
+    "fly": {
+      "label": "Front fly stitching",
+      "default": true
+    },
+    "cargoPockets": {
+      "label": "Cargo pockets",
+      "default": false
+    },
+    "backPockets": {
+      "label": "Back pockets",
+      "default": true
+    }
+  }
+}
