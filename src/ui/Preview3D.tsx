@@ -11,6 +11,8 @@ export interface Preview3DApi {
 
 interface Props {
   params: TShirtParams;
+  /** Changes when a different design is opened: the camera re-frames it (unless the angle is locked). */
+  designKey?: string;
   apiRef?: React.RefObject<Preview3DApi | null>;
 }
 
@@ -60,7 +62,7 @@ interface SceneState {
   radius: number;
 }
 
-export function Preview3D({ params, apiRef }: Props) {
+export function Preview3D({ params, apiRef, designKey }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SceneState | null>(null);
   const pending = useRef<number | null>(null);
@@ -157,6 +159,7 @@ export function Preview3D({ params, apiRef }: Props) {
 
   // Rebuild the mesh from the shared garment definition, at most once per animation frame.
   const firstBuild = useRef(true);
+  const framedKey = useRef(designKey);
   useEffect(() => {
     if (pending.current != null) cancelAnimationFrame(pending.current);
     pending.current = requestAnimationFrame(() => {
@@ -207,10 +210,13 @@ export function Preview3D({ params, apiRef }: Props) {
           s.controls.target.set(...saved.target);
           s.controls.update();
         } else setView(s, 'angle');
+      } else if (framedKey.current !== designKey && !lockedRef.current) {
+        setView(s, 'angle');
       }
+      framedKey.current = designKey;
       s.render();
     });
-  }, [params]);
+  }, [params, designKey]);
 
   const toggleLock = () => {
     const s = sceneRef.current;

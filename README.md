@@ -7,7 +7,8 @@ A beginner-friendly design studio for experimenting with unconventional T-shirt 
 ```bash
 npm install
 npm run dev          # http://localhost:5173
-npm test             # unit tests (geometry, validation, persistence, AI gate)
+npm test             # unit + quick stress tests (geometry, validation, persistence, AI gate)
+STRESS_SCALE=20 npx vitest run tests/stress.test.ts   # heavy stress run
 npm run build && npm start   # production build served on http://localhost:4173
 ```
 

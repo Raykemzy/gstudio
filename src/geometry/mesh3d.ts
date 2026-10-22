@@ -1,7 +1,7 @@
 import Delaunator from 'delaunator';
 import type { TShirtParams } from '../model/schema';
 import { buildOutline, neckCurve, neckY, outerNeckY, type NeckSurface } from './outline';
-import { bounds, dist, distToPolyline, pointInPolygon, resampleClosed, vec, type Vec } from './polygon';
+import { bounds, dist, signedArea, distToPolyline, pointInPolygon, resampleClosed, vec, type Vec } from './polygon';
 
 /**
  * Simplified 3D preview geometry, derived from the SAME outline as the 2D editor.
@@ -31,6 +31,9 @@ export interface MeshOptions {
   maxDepth?: number; // cap on half-thickness in cm
 }
 
+/** Interior grid points per surface before the mesh is coarsened. */
+const TARGET_INTERIOR_POINTS = 2600;
+
 const BODY_RGB: [number, number, number] = [0.86, 0.87, 0.89];
 
 function resampleOpen(pts: Vec[], step: number): Vec[] {
@@ -50,9 +53,11 @@ export function inflate(d: number, maxDepth: number): number {
 }
 
 export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): GarmentMesh {
-  const h = opts.spacing ?? 1.25;
   const maxDepth = opts.maxDepth ?? Math.min(13, Math.max(6, 0.36 * (p.left.chestHalf + p.right.chestHalf) / 2));
   const outer = buildOutline(p, 'outer').polygon;
+  // Keep the point count roughly constant: big garments get a slightly coarser mesh, so
+  // rebuilds stay fast enough for smooth dragging. A regular tee keeps the 1.25 cm default.
+  const h = opts.spacing ?? Math.max(1.25, Math.sqrt(Math.abs(signedArea(outer)) / TARGET_INTERIOR_POINTS));
   const halfNeck = p.core.neckWidth / 2;
 
   // Neckline curves that lie inside the silhouette become constrained rows of vertices,

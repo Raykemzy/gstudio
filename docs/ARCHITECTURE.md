@@ -102,6 +102,17 @@ Because the 3D form is generated from *any* closed outline, future image-reconst
 - Shoulder slope reads mainly in silhouette, not as a shaped shoulder.
 - The caption under the preview says this to the user.
 
+### Stress testing
+`tests/stress.test.ts` throws seeded random designs and editing sessions at the model. Any failure prints its seed and parameters so it can be reproduced. It checks:
+- outline, validation and 3D never throw, even on invalid input;
+- every valid design has a simple outline, a finite 3D mesh whose width and length match 2D, no-op handle drags that change nothing, a clean SVG export, and an exact save/reopen round trip;
+- random editing sessions (drags, wild drags, slider values) never turn a valid design invalid, and undo/redo replays every state exactly;
+- thousands of malformed AI proposals never throw, and anything accepted is valid.
+
+The quick version runs with `npm test`. The heavy run is `STRESS_SCALE=20 npx vitest run tests/stress.test.ts`.
+
+The stress test found 3D builds of very large garments taking ~100 ms (sluggish dragging). The mesh now adapts its density so the point count stays roughly constant, bringing the worst case to under 40 ms.
+
 ## 5. Persistence format
 - One localStorage key per design (`garment-studio:design:<id>`); the design list is derived from the keys. Reference images go under `garment-studio:image:<key>`.
 - Saving is explicit (Save / Ctrl+S). Leaving with unsaved changes asks first. **Save as copy** and **Duplicate** create a new id with `lineage.parentId` set, so iterations never overwrite the original.

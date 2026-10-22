@@ -400,7 +400,7 @@ export function App() {
         <aside className="right">
           <section className="preview-section">
             <h2>3D preview <button className="small" onClick={export3D}>Export PNG</button></h2>
-            <Preview3D params={params} apiRef={preview} />
+            <Preview3D params={params} apiRef={preview} designKey={design.id} />
           </section>
 
           <section>
