@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CATEGORY_GROUP, PRESETS, PRESET_CATEGORIES, type Preset } from '../model/presets';
 import { flatView } from '../render/layers';
 
@@ -30,7 +30,10 @@ function Thumbnail({ preset }: { preset: Preset }) {
   );
 }
 
-export function PresetGallery({ onPick, onClose }: { onPick: (id: string) => void; onClose: () => void }) {
+const GROUPS = [...new Set(Object.values(CATEGORY_GROUP))];
+
+export function PresetGallery({ onPick, onClose, initialGroup }: { onPick: (id: string) => void; onClose: () => void; initialGroup?: string }) {
+  const [group, setGroup] = useState(initialGroup && GROUPS.includes(initialGroup) ? initialGroup : GROUPS[0]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -44,10 +47,16 @@ export function PresetGallery({ onPick, onClose }: { onPick: (id: string) => voi
           <h2>Start from a shape</h2>
           <button onClick={onClose} aria-label="Close">Close</button>
         </div>
+        <div className="segmented gallery-tabs" role="tablist" aria-label="Garment type">
+          {GROUPS.map((g) => (
+            <button key={g} role="tab" aria-selected={g === group} className={g === group ? 'on' : ''} onClick={() => setGroup(g)}>
+              {g}
+            </button>
+          ))}
+        </div>
         <p className="note">Every shape is a starting point: all of it stays editable.</p>
-        {PRESET_CATEGORIES.map((cat, i) => (
+        {PRESET_CATEGORIES.filter((cat) => CATEGORY_GROUP[cat] === group).map((cat) => (
           <section key={cat}>
-            {CATEGORY_GROUP[cat] !== CATEGORY_GROUP[PRESET_CATEGORIES[i - 1]] && <h2 className="group-head">{CATEGORY_GROUP[cat]}</h2>}
             <h3>{cat}</h3>
             <div className="preset-grid">
               {PRESETS.filter((p) => p.category === cat).map((p) => (

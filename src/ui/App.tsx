@@ -580,7 +580,7 @@ export function App() {
           )}
         </aside>
       </div>
-      {galleryOpen && <PresetGallery onPick={newFromPreset} onClose={() => setGalleryOpen(false)} />}
+      {galleryOpen && <PresetGallery onPick={newFromPreset} onClose={() => setGalleryOpen(false)} initialGroup={params.kind === 'pants' ? 'Bottoms' : 'T-shirts'} />}
     </div>
   );
 }
