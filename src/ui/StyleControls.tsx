@@ -107,6 +107,10 @@ export function StyleControls({ style, surface, selectedPanelId, selectedPoint, 
         <ColourPicker label="Body" fill={style.body} onPick={(c, k) => setFill('body', c, k)} />
         <ColourPicker label="Sleeves" fill={style.sleeves} onPick={(c, k) => setFill('sleeves', c, k)} />
         <ColourPicker label="Neck rib" fill={style.rib} onPick={(c, k) => setFill('rib', c, k)} />
+        <label className="toggle" title="The line where each sleeve joins the body">
+          <input type="checkbox" checked={style.armholeSeam} onChange={(e) => onChange({ ...style, armholeSeam: e.target.checked }, `armhole-seam:${stamp()}`)} />
+          Show armhole seam (sleeve joining line)
+        </label>
       </details>
 
       <details open>

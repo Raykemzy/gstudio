@@ -40,6 +40,8 @@ export interface GarmentStyle {
   body: Fill;
   sleeves: Fill;
   rib: Fill;
+  /** Draw the seam where each sleeve joins the body. */
+  armholeSeam: boolean;
   /** Bottom to top: later panels cover earlier ones. */
   panels: Panel[];
 }
@@ -48,7 +50,7 @@ export const DEFAULT_BODY = '#eef0f3';
 export const DEFAULT_RIB = '#c9ced8';
 
 export function defaultStyle(): GarmentStyle {
-  return { body: { color: DEFAULT_BODY }, sleeves: { color: DEFAULT_BODY }, rib: { color: DEFAULT_RIB }, panels: [] };
+  return { body: { color: DEFAULT_BODY }, sleeves: { color: DEFAULT_BODY }, rib: { color: DEFAULT_RIB }, armholeSeam: true, panels: [] };
 }
 
 /** Garment colours a beginner is likely to want, light to dark. */
@@ -197,6 +199,8 @@ export const styleSchema = z.object({
   body: fillSchema,
   sleeves: fillSchema,
   rib: fillSchema,
+  // Added after v2 shipped: files without it keep the seam they always had.
+  armholeSeam: z.boolean().default(true),
   panels: z.array(panelSchema).max(40),
 });
 

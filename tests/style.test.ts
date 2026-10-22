@@ -141,3 +141,17 @@ describe('panel areas', () => {
     expect(v.bodyClip.split('L').length).toBe(v.clip.split('L').length - 4);
   });
 });
+
+describe('armhole seam', () => {
+  it('can be turned off; files saved before the option existed keep the seam', () => {
+    const p = defaultParams();
+    const seams = (q: TShirtParams) => flatView(q, 'front').layers.filter((l) => l.kind === 'seam').length;
+    expect(seams(p)).toBe(2);
+    p.style.armholeSeam = false;
+    expect(seams(p)).toBe(0);
+    const old = JSON.parse(serializeDesign(newDesign(defaultParams(), 'x')));
+    delete old.params.style.armholeSeam;
+    const r = parseDesign(JSON.stringify(old));
+    expect(r.ok && r.design.params.style.armholeSeam).toBe(true);
+  });
+});

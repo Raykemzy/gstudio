@@ -26,6 +26,8 @@ The AI endpoints run as serverless functions in `api/ai/`. Saved designs live in
 - Drag the blue dots on the 2D outline, or use the sliders and number boxes. Both edit the same data.
 - Switch between **Symmetric** and **Asymmetric** above the garment. Asymmetric lets each side have its own measurements, e.g. a diagonal hem or uneven sleeves. Going back to symmetric copies the wearer's left side onto the right, and Undo reverses that.
 - Switch between front and back views, and overlay another saved design to compare.
+- Tap the empty canvas to hide the dots and see the clean garment; tap the garment to bring them back.
+- Zoom the canvas only (not the page): pinch on a trackpad or phone, Ctrl/⌘ + scroll, or the − / + / Fit buttons. When zoomed in, drag or scroll to move around.
 - Rotate and zoom the 3D preview, or **Lock angle** to keep a viewpoint while you edit. The lock is remembered in this browser.
 - Undo/redo with Ctrl+Z / Ctrl+Shift+Z, save with Ctrl+S, use **Save as copy** for a new iteration, and duplicate, delete or reopen saved designs.
 - Export a flat sketch (front and back side by side, with measurements) as PNG or SVG, and the 3D view as PNG.

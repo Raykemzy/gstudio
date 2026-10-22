@@ -27,6 +27,13 @@ const GRID = 10;
 const coarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
 type Drag = { kind: 'handle'; handle: Handle; gesture: string } | { kind: 'point'; panel: Panel; index: number; gesture: string };
+type Box = { x: number; y: number; w: number; h: number };
+/** What a tap (press without moving) does, depending on where it landed. */
+type TapAction = 'toggle-dots' | 'show-dots' | { panel: string };
+
+const MAX_ZOOM = 8;
+/** A press on empty canvas that moves less than this (px) counts as a tap, not a pan. */
+const TAP_SLOP = 5;
 
 export function Editor2D(props: Props) {
   const { params, surface, compare, onDrag, onDragEnd, selectedPanelId, selectedPoint, onSelectPanel, onSelectPoint, onPanelChange } = props;
@@ -35,6 +42,15 @@ export function Editor2D(props: Props) {
   const [hover, setHover] = useState<Handle | null>(null);
   const [blocked, setBlocked] = useState(false);
   const frozenBox = useRef<string | null>(null);
+  /** Tapping empty canvas hides the dots so the garment can be seen clean. */
+  const [dotsHidden, setDotsHidden] = useState(false);
+  /** null = fit the garment; otherwise the zoomed-in region (cm). */
+  const [zoomBox, setZoomBox] = useState<Box | null>(null);
+  /** Presses that are not dragging a dot: a tap does `tap`, a drag pans, two fingers pinch. */
+  const bgPointers = useRef(new Map<number, { x: number; y: number; startX: number; startY: number; tap: TapAction }>());
+  /** Every finger/pointer currently down on the canvas, to detect a second finger. */
+  const allPointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ dist: number; box: Box } | null>(null);
   const [, setMeasured] = useState(0);
   useEffect(() => {
     const ro = new ResizeObserver(() => setMeasured((n) => n + 1));
@@ -63,7 +79,9 @@ export function Editor2D(props: Props) {
     const bottom = Math.ceil((b.maxY + 14) / GRID) * GRID;
     return { x: -half, y: top, w: 2 * half, h: bottom - top };
   }, [view, comparePaths]);
-  const viewBox = drag && frozenBox.current ? frozenBox.current : `${fitted.x} ${fitted.y} ${fitted.w} ${fitted.h}`;
+  const box = zoomBox ?? fitted;
+  const viewBox = drag && frozenBox.current ? frozenBox.current : `${box.x} ${box.y} ${box.w} ${box.h}`;
+  const zoomLevel = fitted.w / box.w;
   const [vx, vy, vw, vh] = viewBox.split(' ').map(Number);
   const r = vw / 95; // handle radius in cm, roughly constant on screen
   // Fingers need a bigger target than a mouse: an invisible ring at least ~44px (touch) / 20px (mouse) across.
@@ -81,10 +99,130 @@ export function Editor2D(props: Props) {
     e.preventDefault();
     e.stopPropagation();
     svgRef.current!.setPointerCapture(e.pointerId);
-    frozenBox.current = `${fitted.x} ${fitted.y} ${fitted.w} ${fitted.h}`;
+    frozenBox.current = `${box.x} ${box.y} ${box.w} ${box.h}`;
     setDrag(d);
   };
+
+  // ---- zoom & pan (only the canvas zooms, never the page) ----
+
+  /** Zoom by `factor` keeping the canvas point under (clientX, clientY) fixed. */
+  const zoomAt = (factor: number, clientX: number, clientY: number, from: Box = box) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const level = Math.min(MAX_ZOOM, Math.max(1, (fitted.w / from.w) * factor));
+    if (level <= 1.001) return setZoomBox(null);
+    const w = fitted.w / level, h = fitted.h / level;
+    // Where the pointer sits within the visible box, as a fraction (meet-scaled, centred).
+    const k = Math.min(rect.width / from.w, rect.height / from.h);
+    const fx = (clientX - rect.left - (rect.width - from.w * k) / 2) / (from.w * k);
+    const fy = (clientY - rect.top - (rect.height - from.h * k) / 2) / (from.h * k);
+    const px = from.x + fx * from.w, py = from.y + fy * from.h;
+    setZoomBox({ x: px - fx * w, y: py - fy * h, w, h });
+  };
+  const zoomCentre = (factor: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (rect) zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+  };
+  const panBy = (dxPx: number, dyPx: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setZoomBox((zb) => {
+      if (!zb) return zb;
+      const k = Math.min(rect.width / zb.w, rect.height / zb.h);
+      return { ...zb, x: zb.x - dxPx / k, y: zb.y - dyPx / k };
+    });
+  };
+
+  // Wheel needs a non-passive listener so pinch/ctrl-scroll zooms the canvas instead of the page.
+  const zoomRef = useRef({ zoomAt, panBy, zoomed: false });
+  zoomRef.current = { zoomAt, panBy, zoomed: zoomBox !== null };
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        // Trackpad pinch arrives as ctrl+wheel in browsers.
+        e.preventDefault();
+        // Mouse wheels send big steps, trackpads small ones: cap each step so both feel even.
+        zoomRef.current.zoomAt(Math.exp(-Math.max(-25, Math.min(25, e.deltaY)) * 0.01), e.clientX, e.clientY);
+      } else if (zoomRef.current.zoomed) {
+        e.preventDefault();
+        zoomRef.current.panBy(-e.deltaX, -e.deltaY);
+      }
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const bgDown = (e: React.PointerEvent, tap: TapAction) => {
+    e.stopPropagation();
+    svgRef.current!.setPointerCapture(e.pointerId);
+    bgPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, tap });
+  };
+
+  /** Second finger down: whatever the first finger was doing becomes a pinch. */
+  const downCapture = (e: React.PointerEvent) => {
+    allPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (allPointers.current.size !== 2) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (drag) {
+      setDrag(null);
+      setBlocked(false);
+      frozenBox.current = null;
+      onDragEnd();
+    }
+    bgPointers.current.clear();
+    for (const [id, p] of allPointers.current) {
+      svgRef.current!.setPointerCapture(id);
+      bgPointers.current.set(id, { ...p, startX: p.x, startY: p.y, tap: 'show-dots' });
+    }
+    const [a, b] = [...allPointers.current.values()];
+    pinchRef.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, box };
+  };
+  const upCapture = (e: React.PointerEvent) => {
+    allPointers.current.delete(e.pointerId);
+  };
+  const bgMove = (e: React.PointerEvent) => {
+    const pt = bgPointers.current.get(e.pointerId);
+    if (!pt) return;
+    const dx = e.clientX - pt.x, dy = e.clientY - pt.y;
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    if (bgPointers.current.size >= 2 && pinchRef.current) {
+      const [a, b] = [...bgPointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      zoomAt(dist / pinchRef.current.dist, (a.x + b.x) / 2, (a.y + b.y) / 2, pinchRef.current.box);
+    } else if (zoomBox) {
+      panBy(dx, dy);
+    }
+  };
+  const bgUp = (e: React.PointerEvent) => {
+    const pt = bgPointers.current.get(e.pointerId);
+    if (!pt) return;
+    bgPointers.current.delete(e.pointerId);
+    // A pinch ends when the last finger lifts; it never counts as a tap.
+    if (pinchRef.current) {
+      if (bgPointers.current.size === 0) pinchRef.current = null;
+      return;
+    }
+    if (Math.hypot(e.clientX - pt.startX, e.clientY - pt.startY) >= TAP_SLOP) return;
+    if (pt.tap === 'toggle-dots') {
+      // Empty canvas: finish panel editing first; otherwise hide/show the dots.
+      if (selectedPanelId) onSelectPanel(null);
+      else setDotsHidden((h) => !h);
+    } else if (pt.tap === 'show-dots') {
+      setDotsHidden(false);
+      if (selectedPanelId) onSelectPanel(null);
+    } else {
+      setDotsHidden(false);
+      onSelectPanel(pt.tap.panel);
+      onSelectPoint(null);
+    }
+  };
   const move = (e: React.PointerEvent) => {
+    if (bgPointers.current.has(e.pointerId)) return bgMove(e);
     if (!drag) return;
     const m = toModel(e);
     if (drag.kind === 'handle') {
@@ -97,7 +235,8 @@ export function Editor2D(props: Props) {
       onPanelChange(next, drag.gesture);
     }
   };
-  const end = () => {
+  const end = (e: React.PointerEvent) => {
+    if (bgPointers.current.has(e.pointerId)) return bgUp(e);
     if (!drag) return;
     setDrag(null);
     setBlocked(false);
@@ -130,8 +269,9 @@ export function Editor2D(props: Props) {
   let hint: string;
   if (editingPanel) hint = 'Drag the squares to reshape the panel. Tap a + to add a point. Tap outside the garment to finish.';
   else if (panel) hint = `“${panel.name}” is on the ${panel.surface}. Switch to the ${panel.surface === 'front' ? 'Front' : 'Back'} view to edit it.`;
+  else if (dotsHidden) hint = 'Dots hidden. Tap the garment (or the empty canvas again) to show them.';
   else if (shownHandle) hint = shownHandle.label;
-  else hint = 'Drag the dots to reshape the garment. Tap a panel to edit it.';
+  else hint = 'Drag the dots to reshape the garment. Tap a panel to edit it, or the empty canvas to hide the dots.';
 
   // Panel edit overlay (primary copy only; the mirror copy follows).
   const editPoints = editingPanel ? panelModelPoints(editingPanel, frame).map((v) => toView(v, surface)) : [];
@@ -144,10 +284,10 @@ export function Editor2D(props: Props) {
         onPointerMove={move}
         onPointerUp={end}
         onPointerCancel={end}
-        onPointerDown={() => {
-          // A tap on empty canvas finishes panel editing.
-          if (selectedPanelId) onSelectPanel(null);
-        }}
+        onPointerDownCapture={downCapture}
+        onPointerUpCapture={upCapture}
+        onPointerCancelCapture={upCapture}
+        onPointerDown={(e) => bgDown(e, 'toggle-dots')}
         role="img"
         aria-label={`${surface} view of the garment`}
       >
@@ -169,19 +309,17 @@ export function Editor2D(props: Props) {
             clipPath={l.clipped ? `url(#${clipId}${l.bodyOnly ? '-body' : ''})` : undefined}
             className={l.kind === 'panel' ? `panel-shape${l.panelId === selectedPanelId ? ' selected' : ''}` : undefined}
             data-panel={l.kind === 'panel' ? l.panelId : undefined}
-            pointerEvents={l.kind === 'panel' ? 'visiblePainted' : 'none'}
+            pointerEvents={l.kind === 'panel' || l.kind === 'body' || l.kind === 'sleeve' ? 'visiblePainted' : 'none'}
             onPointerDown={
               l.kind === 'panel'
-                ? (e) => {
-                    e.stopPropagation();
-                    onSelectPanel(l.panelId!);
-                    onSelectPoint(null);
-                  }
-                : undefined
+                ? (e) => bgDown(e, { panel: l.panelId! }) // tap selects the panel; drag pans
+                : l.kind === 'body' || l.kind === 'sleeve'
+                  ? (e) => bgDown(e, 'show-dots') // tap brings the dots back; drag pans
+                  : undefined
             }
           />
         ))}
-        {!editingPanel && (
+        {!editingPanel && !dotsHidden && (
           <>
             <text x={leftHem.x} y={leftHem.y + r * 3.5} fontSize={r * 1.7} className="side-label" textAnchor="middle">wearer's L</text>
             <text x={rightHem.x} y={rightHem.y + r * 3.5} fontSize={r * 1.7} className="side-label" textAnchor="middle">wearer's R</text>
@@ -224,6 +362,7 @@ export function Editor2D(props: Props) {
         )}
 
         {!selectedPanelId &&
+          !dotsHidden &&
           handles.map((h) => {
             const v = toView(h.pos, surface);
             const isActive = drag?.kind === 'handle' && drag.handle.id === h.id;
@@ -243,6 +382,12 @@ export function Editor2D(props: Props) {
             );
           })}
       </svg>
+      <div className="zoom-controls" role="group" aria-label="Zoom">
+        <button onClick={() => zoomCentre(1 / 1.5)} disabled={!zoomBox} aria-label="Zoom out" title="Zoom out">−</button>
+        <span className="zoom-level">{Math.round(zoomLevel * 100)}%</span>
+        <button onClick={() => zoomCentre(1.5)} disabled={zoomLevel >= MAX_ZOOM - 0.01} aria-label="Zoom in" title="Zoom in (or pinch / Ctrl+scroll on the canvas)">+</button>
+        <button onClick={() => setZoomBox(null)} disabled={!zoomBox} title="Fit the whole garment">Fit</button>
+      </div>
       <div className={`hint${blocked ? ' warn' : ''}`}>
         {hint}
         {compare && <span className="compare-key"> · dashed outline: {compare.name}</span>}

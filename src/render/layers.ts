@@ -114,7 +114,7 @@ export function flatView(p: TShirtParams, surface: NeckSurface): FlatView {
     const inner = offsetNeck(o.neck, p.core.collarWidth);
     layers.push({ kind: 'rib', d: linePath([...o.neck, ...inner.reverse()], surface, true), fill: style.rib.color, stroke: seam, weight: 0.4, clipped: true });
   }
-  for (const a of armholes) layers.push({ kind: 'seam', d: linePath(a, surface, false), stroke: seam, weight: 0.5, clipped: true });
+  if (style.armholeSeam) for (const a of armholes) layers.push({ kind: 'seam', d: linePath(a, surface, false), stroke: seam, weight: 0.5, clipped: true });
   layers.push(...panelEdges);
   // The back neckline seen through the front opening sits over the background, so it is always dark.
   if (surface === 'front') layers.push({ kind: 'hidden', d: linePath(neckCurve(p, 'back'), surface, false), stroke: 'rgba(31,36,48,0.6)', weight: 0.5, dashed: true, clipped: false });
