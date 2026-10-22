@@ -114,20 +114,7 @@ export function Controls({ params, onChange }: Props) {
 
   return (
     <div className="controls">
-      <label className="toggle" title="When on, both sides change together. Turn off for asymmetric designs.">
-        <input
-          type="checkbox"
-          checked={params.mirror}
-          onChange={(e) => {
-            const next = cloneParams(params);
-            next.mirror = e.target.checked;
-            if (next.mirror) next.right = { ...next.left }; // re-symmetrise from the wearer's left
-            propose(next, `mirror:${Date.now()}`);
-          }}
-        />
-        Symmetric (mirror left and right)
-      </label>
-      {!params.mirror && <p className="note">Asymmetric mode: each side has its own values. Turning symmetry back on copies the wearer's left side onto the right.</p>}
+      {!params.mirror && <p className="note">Asymmetric: each side has its own values (wearer's left and right). Switch back with the Symmetric button above the garment.</p>}
       {message && <p className="error" role="alert">{message}</p>}
 
       {GROUPS.map((g) => (

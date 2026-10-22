@@ -63,6 +63,11 @@ Units are cm. The origin is on the centre line at the neck-side shoulder points,
 | sleeveOpening | 6 – 60 | 17 |
 | sleeveAngle (° below horizontal) | −20 – 80 | 25 |
 
+### Starter shapes
+`src/model/presets.ts` holds 21 silhouettes, authored for this editor as plain parameters. They are generic shapes, not copies of any brand's garments, so they carry no licensing questions. The geometry tests validate every one.
+
+Importing external references (patterns, tech packs, images) is deferred to the materials/assets phase, which will record source and licence. Free downloads are often not licensed for commercial use.
+
 ## 3. Geometry and validation
 
 `src/geometry/outline.ts` derives named keypoints per side: neck side, shoulder point, sleeve top/bottom, underarm and hem side. Together with the sampled neckline and hem curves, these form one closed polygon. Neckline styles are functions `depth(x)`, so front, back and the outer silhouette (the higher of the two at each x) can be combined exactly.

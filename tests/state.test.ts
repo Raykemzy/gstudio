@@ -1,8 +1,9 @@
+import { PRESETS } from '../src/model/presets';
 import { describe, expect, it } from 'vitest';
 import { History } from '../src/state/history';
 import { DesignStore, MemoryStorage } from '../src/state/store';
 import { duplicateDesign, parseDesign, serializeDesign } from '../src/state/designFile';
-import { PRESETS, defaultParams, newDesign, paramsEqual } from '../src/model/schema';
+import { defaultParams, newDesign, paramsEqual } from '../src/model/schema';
 
 describe('history', () => {
   it('undoes and redoes several edits in order', () => {
@@ -43,7 +44,7 @@ describe('persistence', () => {
   it('saves and reopens a design with identical parameters', () => {
     const storage = new MemoryStorage();
     const store = new DesignStore(storage);
-    const d = newDesign(PRESETS[3].params(), 'Asym test');
+    const d = newDesign(PRESETS.find((p) => p.id === 'asymmetric')!.params(), 'Asym test');
     store.save(d);
     // simulate a reload: brand-new store over the same storage
     const reopened = new DesignStore(storage).load(d.id);

@@ -133,49 +133,6 @@ export function newDesign(params: TShirtParams, name: string, origin: DesignReco
   };
 }
 
-// ---------- presets (starting points, all fully editable) ----------
-
-function preset(core: Partial<CoreParams>, side: Partial<SideParams>, right?: Partial<SideParams>): TShirtParams {
-  const p = defaultParams();
-  Object.assign(p.core, core);
-  Object.assign(p.left, side);
-  Object.assign(p.right, side, right ?? {});
-  p.mirror = !right;
-  return p;
-}
-
-export const PRESETS: { id: string; name: string; params: () => TShirtParams }[] = [
-  { id: 'classic', name: 'Classic tee', params: defaultParams },
-  {
-    id: 'boxy',
-    name: 'Oversized boxy',
-    params: () =>
-      preset(
-        { bodyLength: 72, neckWidth: 20, neckDepthFront: 8, collarWidth: 2.5, hemStyle: 'straight' },
-        { chestHalf: 34, hemHalf: 34, shoulderHalf: 32, shoulderDrop: 7, armholeDepth: 27, sleeveLength: 24, sleeveOpening: 23, sleeveAngle: 32 },
-      ),
-  },
-  {
-    id: 'cropped',
-    name: 'Cropped, wide sleeves',
-    params: () =>
-      preset(
-        { bodyLength: 48, neckWidth: 19, neckDepthFront: 7, hemStyle: 'straight' },
-        { chestHalf: 31, hemHalf: 32, shoulderHalf: 28, shoulderDrop: 5, armholeDepth: 24, sleeveLength: 22, sleeveOpening: 30, sleeveAngle: 20 },
-      ),
-  },
-  {
-    id: 'asymmetric',
-    name: 'Asymmetric hem',
-    params: () =>
-      preset(
-        { bodyLength: 68, neckWidth: 17, neckDepthFront: 12, neckStyle: 'v', hemStyle: 'straight' },
-        { chestHalf: 28, hemHalf: 30, shoulderHalf: 26, shoulderDrop: 3, sleeveLength: 18, sleeveOpening: 18, sleeveAngle: 22, hemOffset: 14 },
-        { hemOffset: -12, sleeveLength: 30, hemHalf: 27 },
-      ),
-  },
-];
-
 // ---------- runtime schemas (persistence) ----------
 
 const num = z.number().finite();

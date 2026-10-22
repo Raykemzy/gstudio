@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PRESETS, cloneParams, newDesign, newId, paramsEqual, type DesignRecord, type TShirtParams } from '../model/schema';
+import { cloneParams, newDesign, newId, paramsEqual, type DesignRecord, type TShirtParams } from '../model/schema';
 import { validateParams, type Issue } from '../model/validate';
 import { applyHandleDrag, type Handle } from '../geometry/handles';
 import type { NeckSurface } from '../geometry/outline';
@@ -12,8 +12,11 @@ import type { AppliedProposal } from '../ai/proposal';
 import { Editor2D } from './Editor2D';
 import { Preview3D, type Preview3DApi } from './Preview3D';
 import { Controls } from './Controls';
+import { PresetGallery } from './PresetGallery';
+import { PRESETS, findPreset } from '../model/presets';
 
 const LAST_OPEN_KEY = 'garment-studio:last-open';
+const GALLERY_SEEN_KEY = 'garment-studio:gallery-seen';
 
 function openStorage(): { storage: Storage; persistent: boolean } {
   try {
@@ -133,9 +136,16 @@ export function App() {
     setNotice(r.warnings.length ? { kind: 'error', text: 'This design opened, but has geometry problems listed below. Edit it to fix them.' } : null);
   };
 
+  // First visit: offer the starter shapes straight away (once per browser).
+  const [galleryOpen, setGalleryOpen] = useState(() => list.length === 0 && !storage.getItem(GALLERY_SEEN_KEY));
+  useEffect(() => {
+    if (galleryOpen) storage.setItem(GALLERY_SEEN_KEY, '1');
+  }, [galleryOpen, storage]);
+
   const newFromPreset = (presetId: string) => {
     if (!confirmDiscard()) return;
-    const pr = PRESETS.find((p) => p.id === presetId)!;
+    const pr = findPreset(presetId)!;
+    setGalleryOpen(false);
     openRecord(newDesign(pr.params(), pr.id === 'classic' ? 'Untitled tee' : pr.name, { kind: 'preset' }), null, null);
     setNotice({ kind: 'info', text: `New design from "${pr.name}". It isn't saved until you press Save.` });
   };
@@ -190,6 +200,24 @@ export function App() {
     if (id === design.id) setSaved(null);
     if (compareId === id) setCompareId('');
     refreshList();
+  };
+
+  /** Symmetric copies the wearer's left side onto the right; undo brings the asymmetric version back. */
+  const setMirror = (on: boolean) => {
+    if (on === params.mirror) return;
+    const next = cloneParams(params);
+    next.mirror = on;
+    const differed = JSON.stringify(next.left) !== JSON.stringify(next.right);
+    if (on) next.right = { ...next.left };
+    const err = commit(next, `mirror:${Date.now()}`);
+    if (err) return setNotice({ kind: 'error', text: `Can't make it symmetric: ${err}` });
+    setNotice(
+      on
+        ? differed
+          ? { kind: 'info', text: "Now symmetric: the wearer's left side was copied onto the right. Press Undo to get the asymmetric version back." }
+          : null
+        : { kind: 'info', text: 'Now asymmetric: each side can be edited on its own.' },
+    );
   };
 
   // ----- files -----
@@ -317,6 +345,7 @@ export function App() {
         />
         <span className={`status ${dirty ? 'dirty' : ''}`}>{!saved ? 'Not saved yet' : dirty ? 'Unsaved changes' : 'Saved'}</span>
         <div className="spacer" />
+        <button onClick={() => setGalleryOpen(true)} title="Start a new design from a shape">New</button>
         <button onClick={undo} disabled={!history.current.canUndo} title="Undo (Ctrl+Z)">Undo</button>
         <button onClick={redo} disabled={!history.current.canRedo} title="Redo (Ctrl+Shift+Z)">Redo</button>
         <button className="primary" onClick={save} title="Save (Ctrl+S)">Save</button>
@@ -333,14 +362,6 @@ export function App() {
       <div className="workspace">
         <aside className="left">
           <section>
-            <h2>Start a new design</h2>
-            <div className="preset-row">
-              {PRESETS.map((p) => (
-                <button key={p.id} onClick={() => newFromPreset(p.id)}>{p.name}</button>
-              ))}
-            </div>
-          </section>
-          <section>
             <h2>Adjust</h2>
             <Controls params={params} onChange={commit} />
           </section>
@@ -351,6 +372,10 @@ export function App() {
             <div className="segmented" role="group" aria-label="View">
               <button className={surface === 'front' ? 'on' : ''} onClick={() => setSurface('front')}>Front</button>
               <button className={surface === 'back' ? 'on' : ''} onClick={() => setSurface('back')}>Back</button>
+            </div>
+            <div className="segmented" role="group" aria-label="Symmetry" title="Symmetric: both sides change together. Asymmetric: edit each side separately.">
+              <button className={params.mirror ? 'on' : ''} onClick={() => setMirror(true)} aria-pressed={params.mirror}>Symmetric</button>
+              <button className={!params.mirror ? 'on' : ''} onClick={() => setMirror(false)} aria-pressed={!params.mirror}>Asymmetric</button>
             </div>
             <label>
               Compare with{' '}
@@ -468,6 +493,7 @@ export function App() {
           )}
         </aside>
       </div>
+      {galleryOpen && <PresetGallery onPick={newFromPreset} onClose={() => setGalleryOpen(false)} />}
     </div>
   );
 }

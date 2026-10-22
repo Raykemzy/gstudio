@@ -20,11 +20,11 @@ npm run build && npm start   # production build served on http://localhost:4173
 The AI endpoints run as serverless functions in `api/ai/`. Saved designs live in each visitor's own browser storage.
 
 ## What you can do
-- Start from a preset: Classic, Oversized boxy, Cropped with wide sleeves, Asymmetric hem.
+- Start from one of 21 starter shapes (**New**), grouped as Essentials, Oversized, Cropped, Sleeves, Necklines & hems and Experimental. Every shape stays fully editable.
 - Drag the blue dots on the 2D outline, or use the sliders and number boxes. Both edit the same data.
-- Turn off **Symmetric** to give each side its own measurements, e.g. asymmetric hems or uneven sleeves.
+- Switch between **Symmetric** and **Asymmetric** above the garment. Asymmetric lets each side have its own measurements, e.g. a diagonal hem or uneven sleeves. Going back to symmetric copies the wearer's left side onto the right, and Undo reverses that.
 - Switch between front and back views, and overlay another saved design to compare.
-- Rotate and zoom the 3D preview.
+- Rotate and zoom the 3D preview, or **Lock angle** to keep a viewpoint while you edit. The lock is remembered in this browser.
 - Undo/redo with Ctrl+Z / Ctrl+Shift+Z, save with Ctrl+S, use **Save as copy** for a new iteration, and duplicate, delete or reopen saved designs.
 - Export the 2D view as PNG or SVG (garment plus measurements, no app chrome), and the 3D view as PNG.
 - Download or import a design as `.json`.

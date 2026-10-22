@@ -1,5 +1,6 @@
+import { PRESETS } from '../src/model/presets';
 import { describe, expect, it } from 'vitest';
-import { PRESETS, cloneParams, defaultParams, type TShirtParams } from '../src/model/schema';
+import { cloneParams, defaultParams, type TShirtParams } from '../src/model/schema';
 import { validateParams } from '../src/model/validate';
 import { buildOutline } from '../src/geometry/outline';
 import { applyHandleDrag, getHandles } from '../src/geometry/handles';
