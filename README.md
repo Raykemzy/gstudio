@@ -22,12 +22,13 @@ The AI endpoints run as serverless functions in `api/ai/`. Saved designs live in
 
 ## What you can do
 - Start from one of 21 starter shapes (**New**), grouped as Essentials, Oversized, Cropped, Sleeves, Necklines & hems and Experimental. Every shape stays fully editable.
+- Colour the body, sleeves and neck rib, and add **panels** for colour blocking (side curves, yoke, hem band, diagonal split, stripes, arch). Drag a panel's squares to reshape it, tap **+** to add points, mirror it across both sides, and keep it off the sleeves if you like.
 - Drag the blue dots on the 2D outline, or use the sliders and number boxes. Both edit the same data.
 - Switch between **Symmetric** and **Asymmetric** above the garment. Asymmetric lets each side have its own measurements, e.g. a diagonal hem or uneven sleeves. Going back to symmetric copies the wearer's left side onto the right, and Undo reverses that.
 - Switch between front and back views, and overlay another saved design to compare.
 - Rotate and zoom the 3D preview, or **Lock angle** to keep a viewpoint while you edit. The lock is remembered in this browser.
 - Undo/redo with Ctrl+Z / Ctrl+Shift+Z, save with Ctrl+S, use **Save as copy** for a new iteration, and duplicate, delete or reopen saved designs.
-- Export the 2D view as PNG or SVG (garment plus measurements, no app chrome), and the 3D view as PNG.
+- Export a flat sketch (front and back side by side, with measurements) as PNG or SVG, and the 3D view as PNG.
 - Download or import a design as `.json`.
 - Attach a reference image. It is stored for reference only.
 - Works on phones: the garment comes first, then the 3D preview and generator, then the controls. Drag targets are enlarged for fingers.

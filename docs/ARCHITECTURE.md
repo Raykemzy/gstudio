@@ -68,6 +68,14 @@ Units are cm. The origin is on the centre line at the neck-side shoulder points,
 
 Importing external references (patterns, tech packs, images) is deferred to the materials/assets phase, which will record source and licence. Free downloads are often not licensed for commercial use.
 
+### Colours and panels (`params.style`, schema v2)
+`style` holds the colours of the body, sleeves and neck rib, plus a list of **panels**: closed shapes, each with a colour, used for colour blocking.
+- **Coordinates:** panel points are garment-relative, `u = x / chest half-width` of that side and `v = y / body length`, so panels follow the shape when it is resized.
+- **Clipping:** a panel is clipped either to the whole garment or to the body only ("keep off the sleeves"), so its shape can run past the edges freely.
+- **Options:** panels can be mirrored across the centre line, drawn curved (Catmull-Rom) or straight, and belong to the front or the back.
+- **One drawing for everything:** `render/layers.ts` turns a design into an ordered list of layers per view. The SVG editor, the front-and-back export and the 3D preview (painted onto canvas textures with planar UVs) all draw from that list, so they cannot disagree.
+- **Old files:** version-1 files open through a migration that adds the default (uncoloured) style.
+
 ## 3. Geometry and validation
 
 `src/geometry/outline.ts` derives named keypoints per side: neck side, shoulder point, sleeve top/bottom, underarm and hem side. Together with the sampled neckline and hem curves, these form one closed polygon. Neckline styles are functions `depth(x)`, so front, back and the outer silhouette (the higher of the two at each x) can be combined exactly.
@@ -134,12 +142,12 @@ The stress test found 3D builds of very large garments taking ~100 ms (sluggish 
 - Verified with a real Gemini key: the full schema is accepted and generations pass the client validation gate. The Claude path has not been run against the live API.
 - Gemini free tier: keys come from Google AI Studio. Check Google's current terms before relying on it. Free-tier limits are low, and Google's terms have historically allowed free-tier prompts to be used to improve its products, so avoid sending confidential designs there.
 
-## 7. What's next (in PRD order)
-1. Test the live AI path with a real Gemini key and tune the prompt on unusual descriptions (Phase 2 finish).
-2. Phase 3 user testing on real design tasks. Likely candidates:
-   - curved sleeve-hem/armhole seams,
-   - waist shaping on the side seam,
-   - per-side neck asymmetry,
-   - showing measurements beside the dragged handle.
-3. Phase 4 image → silhouette. The `referenceImage` field is already stored; the 3D builder already accepts arbitrary outlines; the remaining work is extraction and part labelling.
-4. Phase 5 materials (`materials[]` is reserved in the schema).
+## 7. Roadmap (revised 2026-10-22)
+The end goal is a simplified "Illustrator for clothing": design the shape, dress it with panels, colours, textures and graphics, and export clean flat sketches.
+1. ✅ Shape editor, AI generation, starter shapes, mobile.
+2. ✅ **Colour & panels:** per-part colours, colour-blocked panels from templates, editable points, front + back export, colours in 3D.
+3. **Textures & patterns:** camo, mesh, acid wash, heather and stripes, or your own uploads, per panel. They show in 3D.
+4. **Graphics & text:** logos and prints on the front, back and sleeves, sized in cm.
+5. **Construction details:** raglan sleeves, rib cuffs and hem bands, gathered hems, stitch lines, pockets.
+6. **More garments:** long sleeve and sweatshirt, then hoodie, then pants.
+7. Photo to design, material library, visual polish.

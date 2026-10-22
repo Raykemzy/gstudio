@@ -20,6 +20,11 @@ import { bounds, dist, signedArea, distToPolyline, pointInPolygon, resampleClose
 export interface GarmentMesh {
   positions: Float32Array; // xyz per vertex, three.js frame (y up, +z toward viewer = garment front)
   colors: Float32Array; // rgb per vertex
+  /** Texture coordinates: model (x, y) mapped into `uvBox`, the same for front and back. */
+  uvs: Float32Array;
+  uvBox: { minX: number; minY: number; width: number; height: number };
+  /** Indices are front triangles first, then back: the first `frontIndexCount` belong to the front. */
+  frontIndexCount: number;
   indices: Uint32Array;
   vertexCount: number;
   /** Necklines lifted onto the inflated surfaces (xyz triples), for drawing the collar rib. */
@@ -92,15 +97,21 @@ export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): Garme
 
   const positions = new Float32Array(n * 2 * 3);
   const colors = new Float32Array(n * 2 * 3);
+  const uvBox = { minX: b.minX - 1, minY: b.minY - 1, width: b.width + 2, height: b.height + 2 };
+  const uvs = new Float32Array(n * 2 * 2);
   for (let i = 0; i < n; i++) {
     const v = pts[i];
     positions.set([v.x, -v.y, depth[i]], i * 3);
     positions.set([v.x, -v.y, -depth[i]], (n + i) * 3);
+    const uv = [(v.x - uvBox.minX) / uvBox.width, 1 - (v.y - uvBox.minY) / uvBox.height];
+    uvs.set(uv, i * 2);
+    uvs.set(uv, (n + i) * 2);
     colors.set(BODY_RGB, i * 3);
     colors.set(BODY_RGB, (n + i) * 3);
   }
 
   const idx: number[] = [];
+  const backIdx: number[] = [];
   for (let t = 0; t < tri.length; t += 3) {
     let [a, bI, c] = [tri[t], tri[t + 1], tri[t + 2]];
     const A = pts[a], B = pts[bI], C = pts[c];
@@ -109,7 +120,7 @@ export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): Garme
     // In the y-down model frame a negative orientation is counter-clockwise once y is flipped.
     if ((B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x) > 0) [bI, c] = [c, bI];
     if (!inHole('front', centroid)) idx.push(a, bI, c);
-    if (!inHole('back', centroid)) idx.push(n + a, n + c, n + bI);
+    if (!inHole('back', centroid)) backIdx.push(n + a, n + c, n + bI);
   }
 
   const lift = (surface: NeckSurface, sign: number) =>
@@ -117,7 +128,10 @@ export function buildGarmentMesh(p: TShirtParams, opts: MeshOptions = {}): Garme
   return {
     positions,
     colors,
-    indices: Uint32Array.from(idx),
+    uvs,
+    uvBox,
+    frontIndexCount: idx.length,
+    indices: Uint32Array.from([...idx, ...backIdx]),
     vertexCount: n * 2,
     necklines: { front: lift('front', 1), back: lift('back', -1) },
   };

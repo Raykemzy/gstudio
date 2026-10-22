@@ -29,6 +29,8 @@ import { buildExportSvg } from '../src/render/exportImage';
 import { parseDesign, serializeDesign } from '../src/state/designFile';
 import { History } from '../src/state/history';
 import { applyProposal } from '../src/ai/proposal';
+import { PANEL_TEMPLATES, SWATCHES, styleSchema, type GarmentStyle } from '../src/model/style';
+import { flatView } from '../src/render/layers';
 
 const SCALE = Number(process.env.STRESS_SCALE ?? 1);
 const n = (base: number) => Math.max(1, Math.round(base * SCALE));
@@ -55,6 +57,26 @@ function rng(seed: number) {
 }
 type Rng = ReturnType<typeof rng>;
 
+function randomStyle(r: Rng): GarmentStyle {
+  const color = () => r.pick(SWATCHES).color;
+  const panels = Array.from({ length: Math.floor(r.next() * 5) }, (_, i) => {
+    const t = r.pick(PANEL_TEMPLATES);
+    return {
+      id: `p${i}`,
+      name: t.name,
+      surface: r.pick(['front', 'back'] as const),
+      // Jitter the template so shapes vary, including points well outside the garment.
+      points: t.points.map(([u, v]) => [u + (r.next() - 0.5) * 0.6, v + (r.next() - 0.5) * 0.4] as [number, number]),
+      curved: r.next() < 0.5,
+      mirrored: r.next() < 0.5,
+      seam: r.next() < 0.7,
+      area: r.pick(['body', 'whole'] as const),
+      fill: { color: color() },
+    };
+  });
+  return { body: { color: color() }, sleeves: { color: color() }, rib: { color: color() }, panels };
+}
+
 function randomParams(r: Rng): TShirtParams {
   const side = () => Object.fromEntries(SIDE_KEYS.map((k) => [k, r.field(SIDE_FIELDS[k])])) as TShirtParams['left'];
   const left = side();
@@ -68,6 +90,7 @@ function randomParams(r: Rng): TShirtParams {
     left,
     right: mirror ? { ...left } : side(),
     mirror,
+    style: randomStyle(r),
   };
 }
 
@@ -122,8 +145,13 @@ function checkValidDesign(p: TShirtParams): string | null {
     }
   }
 
+  // Flat views (editor, export and 3D textures all draw these) are well-formed.
+  if (!styleSchema.safeParse(p.style).success) return 'style failed its schema';
+  for (const surface of ['front', 'back'] as const)
+    for (const l of flatView(p, surface).layers) if (/NaN|Infinity|undefined/.test(l.d)) return `${surface} ${l.kind} layer has a bad path`;
+
   // Export and save/reopen.
-  for (const surface of ['front', 'back'] as const) if (/NaN|Infinity/.test(buildExportSvg(p, surface, 'x'))) return `${surface} export SVG contains NaN`;
+  if (/NaN|Infinity/.test(buildExportSvg(p, 'x'))) return 'export SVG contains NaN';
   const reopened = parseDesign(serializeDesign(newDesign(p, 'stress')));
   if (!reopened.ok) return `save/reopen failed: ${reopened.error}`;
   if (!paramsEqual(reopened.design.params, p)) return 'save/reopen changed the design';

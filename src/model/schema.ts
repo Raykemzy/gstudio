@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import fields from './fields.json';
+import { defaultStyle, styleSchema, type GarmentStyle } from './style';
 
 /**
  * The garment model. All lengths are centimetres on a flat, front-facing garment.
@@ -42,6 +43,8 @@ export interface TShirtParams {
   right: SideParams;
   /** When true, edits to one side are copied to the other. */
   mirror: boolean;
+  /** Colours and panels. Not part of the shape: validation of geometry ignores it. */
+  style: GarmentStyle;
 }
 
 export type OriginKind = 'blank' | 'preset' | 'ai' | 'offline-interpreter' | 'duplicate' | 'import';
@@ -64,7 +67,7 @@ export interface ReferenceImageMeta {
 }
 
 export const DESIGN_FORMAT = 'garment-studio.design';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface DesignRecord {
   format: typeof DESIGN_FORMAT;
@@ -100,11 +103,12 @@ export function defaultParams(): TShirtParams {
     left: { ...side },
     right: { ...side },
     mirror: true,
+    style: defaultStyle(),
   };
 }
 
 export function cloneParams(p: TShirtParams): TShirtParams {
-  return { core: { ...p.core }, left: { ...p.left }, right: { ...p.right }, mirror: p.mirror };
+  return { core: { ...p.core }, left: { ...p.left }, right: { ...p.right }, mirror: p.mirror, style: structuredClone(p.style) };
 }
 
 export function paramsEqual(a: TShirtParams, b: TShirtParams): boolean {
@@ -143,7 +147,7 @@ const coreSchema = z.object({
 });
 const sideSchema = z.object(Object.fromEntries(SIDE_KEYS.map((k) => [k, num])) as Record<SideKey, typeof num>);
 
-export const paramsSchema = z.object({ core: coreSchema, left: sideSchema, right: sideSchema, mirror: z.boolean() });
+export const paramsSchema = z.object({ core: coreSchema, left: sideSchema, right: sideSchema, mirror: z.boolean(), style: styleSchema });
 
 export const designSchema = z.object({
   format: z.literal(DESIGN_FORMAT),

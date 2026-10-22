@@ -4,6 +4,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { TShirtParams } from '../model/schema';
 import { buildGarmentMesh } from '../geometry/mesh3d';
 import { buildOutline } from '../geometry/outline';
+import { flatView, type FlatView } from '../render/layers';
+import { drawFlatView } from '../render/canvas';
 
 export interface Preview3DApi {
   capturePng: () => Promise<Blob | null>;
@@ -17,6 +19,52 @@ interface Props {
 }
 
 type ViewName = 'front' | 'back' | 'side' | 'angle';
+
+interface Skin {
+  canvas: HTMLCanvasElement;
+  texture: THREE.CanvasTexture;
+  material: THREE.MeshStandardMaterial;
+}
+
+function makeSkin(): Skin {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 4;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 });
+  return { canvas, texture, material };
+}
+
+const TEXTURE_PX = 1024;
+
+/**
+ * Paint a flat view into a skin. Texture space is the model frame (wearer's left = +x),
+ * so the back view, which is drawn mirrored, is flipped back here.
+ */
+function paintSkin(skin: Skin, view: FlatView, box: { minX: number; minY: number; width: number; height: number }, mirrored: boolean, base: string) {
+  const k = TEXTURE_PX / Math.max(box.width, box.height);
+  const w = Math.max(4, Math.round(box.width * k)), h = Math.max(4, Math.round(box.height * k));
+  if (skin.canvas.width !== w || skin.canvas.height !== h) {
+    skin.canvas.width = w;
+    skin.canvas.height = h;
+    // A new size needs a new GPU texture.
+    skin.texture.dispose();
+    skin.texture = new THREE.CanvasTexture(skin.canvas);
+    skin.texture.colorSpace = THREE.SRGBColorSpace;
+    skin.texture.anisotropy = 4;
+    skin.material.map = skin.texture;
+    skin.material.needsUpdate = true;
+  }
+  const ctx = skin.canvas.getContext('2d')!;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, w, h);
+  ctx.setTransform(mirrored ? -k : k, 0, 0, k, -box.minX * k, -box.minY * k);
+  // The 3D view draws its own outline, and the hidden back-neck line belongs to the flat sketch only.
+  drawFlatView(ctx, { ...view, layers: view.layers.filter((l) => l.kind !== 'outline' && l.kind !== 'hidden') }, 0.3);
+  skin.texture.needsUpdate = true;
+}
 
 /** A locked camera, remembered in this browser so the same angle comes back after a reload. */
 interface LockedView {
@@ -56,7 +104,9 @@ interface SceneState {
   mesh: THREE.Mesh;
   seam: THREE.LineLoop;
   rib: THREE.Group;
-  ribMaterial: THREE.Material;
+  ribMaterial: THREE.MeshStandardMaterial;
+  /** One painted texture per surface: the same flat drawing as the 2D editor. */
+  skins: { front: Skin; back: Skin };
   render: () => void;
   center: THREE.Vector3;
   radius: number;
@@ -99,8 +149,8 @@ export function Preview3D({ params, apiRef, designKey }: Props) {
     controls.minDistance = 40;
     controls.maxDistance = 1200;
 
-    const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 });
-    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+    const skins = { front: makeSkin(), back: makeSkin() };
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), [skins.front.material, skins.back.material]);
     scene.add(mesh);
     const seam = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x1f2430 }));
     scene.add(seam);
@@ -122,7 +172,7 @@ export function Preview3D({ params, apiRef, designKey }: Props) {
     const ro = new ResizeObserver(resize);
     ro.observe(host);
 
-    sceneRef.current = { renderer, camera, controls, mesh, seam, rib, ribMaterial, render, center: new THREE.Vector3(), radius: 60 };
+    sceneRef.current = { renderer, camera, controls, mesh, seam, rib, ribMaterial, skins, render, center: new THREE.Vector3(), radius: 60 };
     applyLock(sceneRef.current, lockedRef.current);
     if (apiRef)
       apiRef.current = {
@@ -148,7 +198,10 @@ export function Preview3D({ params, apiRef, designKey }: Props) {
       controls.dispose();
       mesh.geometry.dispose();
       seam.geometry.dispose();
-      material.dispose();
+      for (const sk of Object.values(skins)) {
+        sk.texture.dispose();
+        sk.material.dispose();
+      }
       ribMaterial.dispose();
       rib.children.forEach((c) => (c as THREE.Mesh).geometry.dispose());
       renderer.dispose();
@@ -175,12 +228,18 @@ export function Preview3D({ params, apiRef, designKey }: Props) {
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
       geo.setIndex(new THREE.BufferAttribute(data.indices, 1));
+      geo.addGroup(0, data.frontIndexCount, 0);
+      geo.addGroup(data.frontIndexCount, data.indices.length - data.frontIndexCount, 1);
       geo.computeVertexNormals();
       geo.computeBoundingSphere();
       s.mesh.geometry.dispose();
       s.mesh.geometry = geo;
+
+      paintSkin(s.skins.front, flatView(params, 'front'), data.uvBox, false, params.style.body.color);
+      paintSkin(s.skins.back, flatView(params, 'back'), data.uvBox, true, params.style.body.color);
+      s.ribMaterial.color.set(params.style.rib.color);
 
       const outline = buildOutline(params, 'outer').polygon;
       const seamGeo = new THREE.BufferGeometry().setFromPoints(outline.map((v) => new THREE.Vector3(v.x, -v.y, 0)));

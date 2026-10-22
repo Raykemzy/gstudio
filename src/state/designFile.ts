@@ -1,5 +1,6 @@
 import { designSchema, newId, cloneParams, type DesignRecord } from '../model/schema';
 import { validateParams, type Issue } from '../model/validate';
+import { defaultStyle } from '../model/style';
 
 /**
  * Versioned design file format. Every saved design carries `format` and
@@ -10,7 +11,13 @@ import { validateParams, type Issue } from '../model/validate';
 type Migration = (raw: Record<string, unknown>) => Record<string, unknown>;
 
 // Add an entry here when SCHEMA_VERSION is bumped: MIGRATIONS[n] upgrades version n to n + 1.
-const MIGRATIONS: Record<number, Migration> = {};
+const MIGRATIONS: Record<number, Migration> = {
+  // v2 added colours and panels: older designs get the default (uncoloured) look.
+  1: (d) => {
+    const params = d.params && typeof d.params === 'object' ? (d.params as Record<string, unknown>) : null;
+    return params ? { ...d, params: { ...params, style: params.style ?? defaultStyle() } } : d;
+  },
+};
 
 export function migrate(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object') return raw;

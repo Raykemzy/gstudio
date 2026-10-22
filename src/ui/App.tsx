@@ -12,6 +12,8 @@ import type { AppliedProposal } from '../ai/proposal';
 import { Editor2D } from './Editor2D';
 import { Preview3D, type Preview3DApi } from './Preview3D';
 import { Controls } from './Controls';
+import { StyleControls } from './StyleControls';
+import type { GarmentStyle, Panel } from '../model/style';
 import { PresetGallery } from './PresetGallery';
 import { PRESETS, findPreset } from '../model/presets';
 
@@ -68,6 +70,8 @@ export function App() {
   const [warnings, setWarnings] = useState<Issue[]>(init.warnings);
   const [list, setList] = useState<DesignSummary[]>(() => store.list());
   const [surface, setSurface] = useState<NeckSurface>('front');
+  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
   const [compareId, setCompareId] = useState<string>('');
   const [notice, setNotice] = useState<Notice>(
     persistent ? null : { kind: 'error', text: 'Browser storage is unavailable, so designs will not survive a reload. Use "Download .json" to keep your work.' },
@@ -124,6 +128,8 @@ export function App() {
     setImage(img);
     setWarnings(w);
     setCompareId('');
+    setSelectedPanelId(null);
+    setSelectedPoint(null);
     if (s) storage.setItem(LAST_OPEN_KEY, d.id);
   };
 
@@ -220,6 +226,20 @@ export function App() {
     );
   };
 
+  // ----- colours & panels -----
+
+  const onStyleChange = (style: GarmentStyle, key: string) => {
+    const err = commit({ ...cloneParams(params), style }, key);
+    if (err) setNotice({ kind: 'error', text: err });
+  };
+  const onPanelChange = (panel: Panel, gesture: string) =>
+    onStyleChange({ ...params.style, panels: params.style.panels.map((p) => (p.id === panel.id ? panel : p)) }, gesture);
+  const selectPanel = (id: string | null) => {
+    setSelectedPanelId(id);
+    const p = params.style.panels.find((x) => x.id === id);
+    if (p && p.surface !== surface) setSurface(p.surface);
+  };
+
   // ----- files -----
 
   const exportJson = () =>
@@ -236,8 +256,8 @@ export function App() {
   };
 
   const export2D = async (kind: 'png' | 'svg') => {
-    const svg = buildExportSvg(params, surface, design.name);
-    const name = `${safeFilename(design.name)}-${surface}`;
+    const svg = buildExportSvg(params, design.name);
+    const name = `${safeFilename(design.name)}-flat`;
     if (kind === 'svg') return downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `${name}.svg`);
     try {
       downloadBlob(await svgToPngBlob(svg), `${name}.png`);
@@ -362,7 +382,19 @@ export function App() {
       <div className="workspace">
         <aside className="left">
           <section>
-            <h2>Adjust</h2>
+            <h2>Colours &amp; panels</h2>
+            <StyleControls
+              style={params.style}
+              surface={surface}
+              selectedPanelId={selectedPanelId}
+              selectedPoint={selectedPoint}
+              onChange={onStyleChange}
+              onSelectPanel={selectPanel}
+              onSelectPoint={setSelectedPoint}
+            />
+          </section>
+          <section>
+            <h2>Shape</h2>
             <Controls params={params} onChange={commit} />
           </section>
         </aside>
@@ -394,7 +426,18 @@ export function App() {
               <ul>{warnings.map((w, i) => <li key={i}>{w.message}</li>)}</ul>
             </div>
           )}
-          <Editor2D params={params} surface={surface} compare={compare} onDrag={onDrag} onDragEnd={() => bump((n) => n + 1)} />
+          <Editor2D
+            params={params}
+            surface={surface}
+            compare={compare}
+            onDrag={onDrag}
+            onDragEnd={() => bump((n) => n + 1)}
+            selectedPanelId={selectedPanelId}
+            selectedPoint={selectedPoint}
+            onSelectPanel={selectPanel}
+            onSelectPoint={setSelectedPoint}
+            onPanelChange={onPanelChange}
+          />
         </main>
 
         <aside className="right">

@@ -69,6 +69,16 @@ aside section { margin-bottom: 18px; }
 .editor2d .side-label, .editor2d .scale-label { fill: var(--muted); }
 .editor2d .hint { padding: 6px 12px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); background: var(--panel); }
 .editor2d .hint.warn { color: var(--warn); }
+.editor2d .panel-shape { cursor: pointer; }
+.editor2d .panel-outline { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.editor2d .panel-outline.mirror { stroke-opacity: .45; }
+.editor2d .panel-point { cursor: grab; }
+.editor2d .panel-point .hit, .editor2d .panel-add .hit { fill: transparent; }
+.editor2d .panel-point .dot { fill: #fff; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.editor2d .panel-point.selected .dot { fill: var(--accent); }
+.editor2d .panel-add { cursor: copy; }
+.editor2d .panel-add .dot { fill: #fff; stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .85; }
+.editor2d .panel-add .plus { stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .compare-key { color: #c2410c; }
 
 .controls details { border-top: 1px solid var(--line); padding: 6px 0; }
@@ -123,6 +133,24 @@ textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; paddi
 .preset-card .thumb-collar { fill: #c9ced8; stroke: none; }
 .preset-name { font-weight: 600; font-size: 13px; }
 .preset-desc { font-size: 11px; color: var(--muted); }
+.style-controls details { border-top: 1px solid var(--line); padding: 6px 0; }
+.style-controls summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.colour-row { margin: 8px 0; }
+.colour-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 4px; }
+.custom-colour { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); cursor: pointer; position: relative; }
+.custom-colour input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.chip { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); vertical-align: middle; margin-right: 4px; }
+.swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.swatch { aspect-ratio: 1; padding: 0; border-radius: 6px; border: 1px solid rgba(0,0,0,.2); min-height: 0; }
+.swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.panel-list { list-style: none; margin: 6px 0; padding: 0; }
+.panel-list li { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; border-radius: 6px; }
+.panel-list li.on { background: #eef3ff; }
+.panel-list small { color: var(--muted); font-size: 11px; }
+.panel-editor { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 6px; background: var(--bg); }
+.panel-editor .toggle { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0; }
+.panel-editor .done { width: 100%; margin-top: 8px; }
+input.text { width: 100%; border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; grid-column: 1 / -1; }
 .reference img { max-width: 100%; max-height: 220px; display: block; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; }
 
 /* Narrow screens: one scrolling column with the garment first, then 3D, then the controls. */
@@ -149,7 +177,9 @@ textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; paddi
   .canvas-host { height: 260px; }
   aside { padding: 10px; }
   button, select { min-height: 36px; }
-  .field .num { width: 72px; font-size: 16px; } /* 16px stops iOS zooming into the input */
+  .field .num { width: 72px; font-size: 16px; }
+  input.text { font-size: 16px; }
+  .swatch { min-height: 0; } /* 16px stops iOS zooming into the input */
   textarea { font-size: 16px; }
   .sheet-backdrop { padding: 0; }
   .sheet { border-radius: 0; min-height: 100%; padding: 12px; }
