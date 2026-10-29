@@ -63,6 +63,24 @@ Units are cm. The origin is on the centre line at the neck-side shoulder points,
 | sleeveOpening | 6 – 60 | 17 |
 | sleeveAngle (° below horizontal) | −20 – 80 | 25 |
 
+### Drawing style
+The flats follow the usual industry flat-sketch conventions, cross-checked against the owner's reference Illustrator flats (used only as a style reference; nothing is copied from them):
+- **Colours and lines:** flat grey fill (`#CCCCCC`), and solid black outline and construction lines (they turn light on dark colours).
+- **Bands:** hems and cuffs are a single parallel line rather than stitching.
+- **Tee details:**
+  - a double-line rib, with the inside of the back neck visible through the front opening;
+  - curved shoulders and armholes, a soft armpit and rounded hem corners;
+  - the body edge drawn under dropped shoulders.
+- **Pants details:**
+  - smooth spline side and inside-leg seams;
+  - a curved front waistband with the back waistband visible behind it;
+  - slanted belt loops, a button and rivets;
+  - a scoop front pocket and a coin pocket;
+  - double-stitched back patch pockets;
+  - the back-leg strip along the inside seam.
+- **Fold lines** exist but are off by default.
+- **Colour linking:** changing the body colour updates the sleeves and rib unless they were set separately.
+
 ### Starter shapes
 `src/model/presets.ts` holds 21 silhouettes, authored for this editor as plain parameters. They are generic shapes, not copies of any brand's garments, so they carry no licensing questions. The geometry tests validate every one.
 

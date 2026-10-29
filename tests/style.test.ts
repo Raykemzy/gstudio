@@ -1,4 +1,4 @@
-import { ribShadeOf, withBodyColour } from '../src/model/style';
+import { withBodyColour } from '../src/model/style';
 import { buildBodyOutline, buildOutline, sidePoints } from '../src/geometry/outline';
 import { pointInPolygon } from '../src/geometry/polygon';
 import { SCHEMA_VERSION } from '../src/model/design';
@@ -171,10 +171,10 @@ describe('colour linking', () => {
     const base = defaultParams().style;
     const black = withBodyColour(base, '#121214');
     expect(black.sleeves.color).toBe('#121214');
-    expect(black.rib.color).toBe(ribShadeOf('#121214'));
+    expect(black.rib.color).toBe('#121214');
     // Set the sleeves separately: they no longer follow, the rib still does.
     const custom = withBodyColour({ ...black, sleeves: { color: '#b3261e' } }, '#e9dfc9');
     expect(custom.sleeves.color).toBe('#b3261e');
-    expect(custom.rib.color).toBe(ribShadeOf('#e9dfc9'));
+    expect(custom.rib.color).toBe('#e9dfc9');
   });
 });

@@ -90,7 +90,10 @@ describe('pants drawing, 3D and files', () => {
     expect(front.filter((l) => l.fill === cargo.style.body.color && l.kind === 'seam').length).toBe(4); // 2 pockets + 2 flaps
     const straight = preset('straight-pants');
     expect(flatView(straight, 'front').layers.some((l) => l.dashed && l.kind === 'seam')).toBe(true); // fly / hem stitching
-    expect(flatView(straight, 'back').layers.filter((l) => l.kind === 'seam' && l.d.split('L').length === 5).length).toBe(2); // two 5-point back pockets
+    // Back pockets add drawing to the back view only.
+    const noPockets = { ...straight, core: { ...straight.core, backPockets: false } };
+    expect(flatView(straight, 'back').layers.length).toBeGreaterThan(flatView(noPockets, 'back').layers.length);
+    expect(flatView(straight, 'front').layers.length).toBe(flatView(noPockets, 'front').layers.length);
   });
 
   it('every pants and shorts preset builds a 3D form matching its 2D outline', () => {
@@ -178,5 +181,19 @@ describe('pants stress', () => {
       }
     }
     expect(valid).toBeGreaterThan(20);
+  });
+});
+
+describe('pants hems', () => {
+  it('both legs end in a level hem (inner and outer hem corners at the same height)', () => {
+    for (const id of ['straight-pants', 'jogger', 'shorts']) {
+      const p = preset(id);
+      const o = pantsOutline(p);
+      const hemY = p.core.rise + p.left.inseam;
+      for (const side of [1, -1]) {
+        const atHem = o.filter((v) => Math.abs(v.y - hemY) < 1e-6 && side * v.x > 0);
+        expect(atHem.length, `${id} side ${side}`).toBe(2);
+      }
+    }
   });
 });

@@ -27,8 +27,8 @@ export interface FlatPart {
   kind: 'sleeve' | 'rib' | 'seam' | 'detail' | 'hidden' | 'fold';
   points: Vec[];
   closed: boolean;
-  /** 'body' | 'sleeves' | 'rib' → the style colour to fill with; omitted = no fill. */
-  fill?: 'body' | 'sleeves' | 'rib';
+  /** The style colour to fill with ('shade' = the body colour in shadow, e.g. the inside of the back neck); omitted = no fill. */
+  fill?: 'body' | 'sleeves' | 'rib' | 'shade';
   /** Seam-coloured stroke. */
   stroke?: boolean;
   weight?: number;

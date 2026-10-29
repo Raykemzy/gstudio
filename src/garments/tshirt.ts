@@ -26,10 +26,13 @@ function hemYAt(hem: Vec[], x: number): number {
 }
 
 const fold = (points: Vec[]): FlatPart => ({ kind: 'fold', points, closed: false, stroke: true, weight: 0.45, clip: 'all' });
-const stitch = (points: Vec[], clip: FlatPart['clip'] = 'all'): FlatPart => ({ kind: 'detail', points, closed: false, stroke: true, weight: 0.35, dashed: true, clip });
+
+const line = (points: Vec[], weight = 0.6): FlatPart => ({ kind: 'seam', points, closed: false, stroke: true, weight, clip: 'all' });
 
 function flatParts(p: TShirtParams, surface: Surface) {
-  const o = buildOutline(p, surface);
+  // Front view: the silhouette's top edge is the BACK neckline, and the inside of the back
+  // shows through the front opening, as on a real flat sketch.
+  const outline = buildOutline(p, surface === 'front' ? 'outer' : 'back').polygon;
   const under: FlatPart[] = [];
   const over: FlatPart[] = [];
   const cw = p.core.collarWidth;
@@ -43,17 +46,25 @@ function flatParts(p: TShirtParams, surface: Surface) {
       // Sleeve: shoulder point out to the cuff, back to the armpit, then up the armhole seam.
       under.push({ kind: 'sleeve', points: [sp.shoulder, sp.sleeveTop, sp.sleeveBottom, ...armhole.slice().reverse()], closed: true, fill: 'sleeves', clip: 'all' });
     }
-    if (p.style.armholeSeam) over.push({ kind: 'seam', points: armhole, closed: false, stroke: true, weight: 0.5, clip: 'all' });
-
-    // Double-needle stitching across the sleeve hem, running between the sleeve's two edges.
-    const topLen = dist(sp.shoulder, sp.sleeveTop), underLen = dist(sp.underarm, sp.sleeveBottom);
-    if (L.sleeveLength > 4 && underLen > 3) {
-      for (const d of [1.6, 2.2]) {
-        over.push(stitch([lerp(sp.sleeveTop, sp.shoulder, Math.min(0.45, d / topLen)), lerp(sp.sleeveBottom, sp.underarm, Math.min(0.45, d / underLen))]));
+    if (p.style.armholeSeam) {
+      over.push(line(armhole));
+      // Dropped shoulders: the body's own edge carries on up under the sleeve to the shoulder line.
+      const halfNeck = p.core.neckWidth / 2;
+      if (L.shoulderHalf > L.chestHalf + 1.5 && L.chestHalf > halfNeck + 1) {
+        const yTop = (L.shoulderDrop * (L.chestHalf - halfNeck)) / (L.shoulderHalf - halfNeck);
+        const top = vec(s * L.chestHalf, yTop + 0.4);
+        over.push(line([top, ...quadPoints(top, vec(s * (L.chestHalf + 0.3), (yTop + sp.underarm.y) / 2), sp.underarm, 8)]));
       }
     }
 
-    // Fold lines: drag lines from the armpit, and one soft fold in the sleeve.
+    // Sleeve hem band: one clean line across the sleeve, parallel to the hem.
+    const topLen = dist(sp.shoulder, sp.sleeveTop), underLen = dist(sp.underarm, sp.sleeveBottom);
+    if (L.sleeveLength > 4 && underLen > 3) {
+      const band = Math.min(2, L.sleeveLength * 0.2);
+      over.push(line([lerp(sp.sleeveTop, sp.shoulder, Math.min(0.45, band / topLen)), lerp(sp.sleeveBottom, sp.underarm, Math.min(0.45, band / underLen))]));
+    }
+
+    // Fold lines (off by default): drag lines from the armpit and a soft fold in the sleeve.
     const ua = sp.underarm;
     over.push(fold([vec(ua.x - s * 1.2, ua.y + 2.5), ...quadPoints(vec(ua.x - s * 1.2, ua.y + 2.5), vec(ua.x - s * 2, ua.y + 7.5), vec(ua.x - s * 5.5, ua.y + 12), 8)]));
     over.push(fold([vec(ua.x - s * 0.8, ua.y + 7), ...quadPoints(vec(ua.x - s * 0.8, ua.y + 7), vec(ua.x - s * 1.6, ua.y + 11), vec(ua.x - s * 3.8, ua.y + 15), 8)]));
@@ -65,48 +76,35 @@ function flatParts(p: TShirtParams, surface: Surface) {
     }
   }
 
-  // Neck: the rib band with its knit texture and the stitching just below it.
+  // Neck.
+  const backNeck = neckCurve(p, 'back');
+  if (surface === 'front') {
+    // The inside of the back, seen through the front neck opening, and the back rib's lower edge.
+    const frontNeck = neckCurve(p, 'front');
+    over.push({ kind: 'detail', points: [...neckCurve(p, 'outer'), ...frontNeck.slice().reverse()], closed: true, fill: 'shade', clip: 'all' });
+    if (cw > 0) {
+      const visible = offsetNeck(backNeck, cw).filter((v) => v.y < neckY(p, 'front', v.x) - 0.15);
+      if (visible.length > 1) over.push(line(visible, 0.5));
+    }
+  }
+  const neck = neckCurve(p, surface);
   if (cw > 0) {
-    const inner = offsetNeck(o.neck, cw);
-    over.push({ kind: 'rib', points: [...o.neck, ...inner.slice().reverse()], closed: true, fill: 'rib', stroke: true, weight: 0.4, clip: 'all' });
-    const ribLines = resampleOpenEven(o.neck, 0.9);
-    const ribInner = offsetNeck(ribLines, cw);
-    ribLines.forEach((v, i) => i > 0 && i < ribLines.length - 1 && over.push({ kind: 'detail', points: [v, ribInner[i]], closed: false, stroke: true, weight: 0.22, clip: 'all' }));
-    over.push(stitch(offsetNeck(o.neck, cw + 0.45)));
+    over.push({ kind: 'rib', points: [...neck, ...offsetNeck(neck, cw).reverse()], closed: true, fill: 'rib', stroke: true, weight: 0.6, clip: 'all' });
   } else {
-    over.push(stitch(offsetNeck(o.neck, 0.8)));
+    over.push(line(offsetNeck(neck, 0.8), 0.4)); // a narrow binding instead of a rib
   }
 
-  // Bottom hem: double-needle stitching following the hem's shape, kept off the sleeves.
+  // Bottom hem band: one clean line following the hem's shape, kept off the sleeves.
   const hem = hemLine(p);
-  for (const d of [1.8, 2.4]) over.push(stitch(extendEnds(offsetPolyline(hem, d), 4), 'body'));
-  // Soft folds rising from the hem.
+  over.push({ ...line(extendEnds(offsetPolyline(hem, 2), 4)), clip: 'body' });
+  // Soft folds rising from the hem (off by default).
   for (const s of [1, -1]) {
     const x = s * (s > 0 ? p.left.hemHalf : p.right.hemHalf) * 0.5;
     const y = hemYAt(hem, x);
     over.push(fold([vec(x, y - 0.8), ...quadPoints(vec(x, y - 0.8), vec(x - s * 0.4, y - 4.5), vec(x - s * 1.6, y - 8), 6)]));
   }
 
-  // The back neckline, seen through the front opening.
-  if (surface === 'front') over.push({ kind: 'hidden', points: neckCurve(p, 'back'), closed: false, stroke: true, weight: 0.5, dashed: true, clip: 'none' });
-  return { outline: o.polygon, body: buildBodyOutline(p, surface), under, over };
-}
-
-/** Points spaced evenly (about `step` cm apart) along an open polyline. */
-function resampleOpenEven(pts: Vec[], step: number): Vec[] {
-  const out: Vec[] = [pts[0]];
-  let carry = 0;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const a = pts[i], b = pts[i + 1];
-    const l = dist(a, b);
-    let t = step - carry;
-    while (t <= l) {
-      out.push(lerp(a, b, t / l));
-      t += step;
-    }
-    carry = l - (t - step);
-  }
-  return out;
+  return { outline, body: buildBodyOutline(p, surface), under, over };
 }
 
 function mesh(p: TShirtParams): MeshSpec {

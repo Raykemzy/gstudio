@@ -1,5 +1,5 @@
 import type { NeckStyle, Side, TShirtParams } from '../model/schema';
-import { cubic, dedupe, roundCorner, vec, type Vec } from './polygon';
+import { cubic, dedupe, quadPoints, roundCorner, vec, type Vec } from './polygon';
 
 /**
  * Derives the flat garment outline from parameters. This is the single geometric
@@ -36,6 +36,8 @@ const NECK_SAMPLES = 32;
 const HEM_SAMPLES = 14;
 /** How far the armpit curve reaches along each edge, cm. */
 const ARMPIT_RADIUS = 2.5;
+/** How far the rounded hem corners reach along each edge, cm. */
+const HEM_CORNER_RADIUS = 1.2;
 
 /** Depth of a neckline below the shoulder line at horizontal position x (0 outside the neck). */
 export function neckDepthAt(style: NeckStyle, halfWidth: number, depth: number, x: number): number {
@@ -115,19 +117,34 @@ export function buildOutline(p: TShirtParams, surface: NeckSurface | 'outer' = '
   const rightHemSide = hemRight[hemRight.length - 1];
   // Real garments curve at the armpit where the sleeve meets the side seam.
   const armpit = (sleeveBottom: Vec, underarm: Vec, sideHem: Vec) => roundCorner(sleeveBottom, underarm, sideHem, ARMPIT_RADIUS);
+  // Shoulders: a gentle convex curve from the neck to the shoulder point, as on a real flat.
+  const shoulderCurve = (from: Vec, to: Vec) => {
+    const len = Math.hypot(to.x - from.x, to.y - from.y);
+    const ctrl = vec((from.x + to.x) / 2, (from.y + to.y) / 2 - (0.04 * len + 0.15));
+    return quadPoints(from, ctrl, to, 6).slice(0, -1);
+  };
+  // Hem corners: softly rounded where the side seam meets the hem.
+  const leftHem = hemLeft.slice().reverse(); // left side seam -> towards centre
+  const leftHemCorner = roundCorner(left.underarm, leftHemSide, leftHem[1] ?? hemCenter, HEM_CORNER_RADIUS);
+  const rightHemCorner = roundCorner(hemRight[hemRight.length - 2] ?? hemCenter, rightHemSide, right.underarm, HEM_CORNER_RADIUS);
+  const neckLeft = neck[neck.length - 1];
   const polygon = dedupe([
     ...neck,
+    ...shoulderCurve(neckLeft, left.shoulder),
     left.shoulder,
     left.sleeveTop,
     left.sleeveBottom,
     ...armpit(left.sleeveBottom, left.underarm, leftHemSide),
-    ...hemLeft.slice().reverse(), // left side seam hem -> towards centre
+    ...leftHemCorner,
+    ...leftHem.slice(1),
     hemCenter,
-    ...hemRight,
+    ...hemRight.slice(0, -1),
+    ...rightHemCorner,
     ...armpit(right.sleeveBottom, right.underarm, rightHemSide).reverse(),
     right.sleeveBottom,
     right.sleeveTop,
     right.shoulder,
+    ...shoulderCurve(right.shoulder, neck[0]),
   ]);
   const neckCenter = vec(0, surface === 'outer' ? outerNeckY(p, 0) : neckY(p, surface, 0));
   return { polygon, neck, sides: { left, right }, hemCenter, neckCenter };

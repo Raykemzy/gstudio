@@ -48,17 +48,20 @@ export interface GarmentStyle {
   panels: Panel[];
 }
 
-export const DEFAULT_BODY = '#eef0f3';
+/** Flat-sketch grey, the industry convention for undyed flats. */
+export const DEFAULT_BODY = '#cccccc';
+/** What older designs used for the rib before rib colours followed the body. */
 export const DEFAULT_RIB = '#c9ced8';
 
 export function defaultStyle(): GarmentStyle {
-  return { body: { color: DEFAULT_BODY }, sleeves: { color: DEFAULT_BODY }, rib: { color: DEFAULT_RIB }, armholeSeam: true, folds: true, panels: [] };
+  return { body: { color: DEFAULT_BODY }, sleeves: { color: DEFAULT_BODY }, rib: { color: DEFAULT_BODY }, armholeSeam: true, folds: false, panels: [] };
 }
 
 /** Garment colours a beginner is likely to want, light to dark. */
 export const SWATCHES: { name: string; color: string }[] = [
   { name: 'Optic white', color: '#f7f7f5' },
   { name: 'Light grey', color: '#eef0f3' },
+  { name: 'Flat grey', color: '#cccccc' },
   { name: 'Heather grey', color: '#b9bcc2' },
   { name: 'Cream', color: '#e9dfc9' },
   { name: 'Sand', color: '#cdb994' },
@@ -203,7 +206,8 @@ export const styleSchema = z.object({
   rib: fillSchema,
   // Added after v2 shipped: files without it keep the seam they always had.
   armholeSeam: z.boolean().default(true),
-  folds: z.boolean().default(true),
+  // Older files had no fold lines.
+  folds: z.boolean().default(false),
   panels: z.array(panelSchema).max(40),
 });
 
@@ -229,7 +233,7 @@ export function withBodyColour(style: GarmentStyle, color: string): GarmentStyle
     ...style,
     body: { color },
     sleeves: sleevesFollow ? { color } : style.sleeves,
-    rib: ribFollows ? { color: ribShadeOf(color) } : style.rib,
+    rib: ribFollows ? { color } : style.rib,
   };
 }
 

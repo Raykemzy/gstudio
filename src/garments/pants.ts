@@ -98,7 +98,7 @@ function leg(p: PantsParams, side: Side): LegPoints {
   const innerKnee = vec(s * (kc - L.kneeWidth / 2), kneeY);
   // One smooth side seam through the waist, the hip, the thigh, knee and hem: no corner
   // where the hip meets the leg. The hip point eases out from the waist like a real seam.
-  const hipPoint = vec(s * (W + (L.thighWidth - W) * 0.78), R * 0.5);
+  const hipPoint = vec(s * (W + (L.thighWidth - W) * 0.62), R * 0.52);
   const outerSeam = catmullRom([waist, hipPoint, thigh, outerKnee, outerHem], 8).slice(1);
   const innerSeam = catmullRom([vec(0, R), innerKnee, innerHem], 10).slice(1);
   return { waist, outerSeam, innerSeam, thigh, outerKnee, outerHem, innerHem, innerKnee };
@@ -113,7 +113,7 @@ export function pantsOutline(p: PantsParams): Vec[] {
     ...l.innerSeam.slice().reverse(), // up the inside leg (inner hem -> just below the crotch)
     vec(0, p.core.rise), // the inside legs meet in a smooth curve at the crotch
     ...r.innerSeam, // down the right inside leg to the inner hem
-    ...r.outerSeam.slice().reverse().slice(1), // up the right side, ending just below the waist corner
+    ...r.outerSeam.slice().reverse(), // up the right side (outer hem first), ending just below the waist corner
   ]);
 }
 
@@ -134,71 +134,100 @@ function flatParts(p: PantsParams, surface: Surface): FlatParts {
   const W = p.core.waistWidth / 2;
   const R = p.core.rise;
   const wb = p.core.waistbandHeight;
+  const banded = p.core.waistStyle === 'band';
   const over: FlatPart[] = [];
   const far = W + 80;
 
   const stitch = (points: Vec[], weight = 0.35): FlatPart => ({ kind: 'detail', points, closed: false, stroke: true, weight, dashed: true, clip: 'all' });
-  const line = (points: Vec[], weight = 0.5): FlatPart => ({ kind: 'seam', points, closed: false, stroke: true, weight, clip: 'all' });
+  const line = (points: Vec[], weight = 0.6): FlatPart => ({ kind: 'seam', points, closed: false, stroke: true, weight, clip: 'all' });
   const fold = (a: Vec, c: Vec, b: Vec): FlatPart => ({ kind: 'fold', points: [a, ...quadPoints(a, c, b, 6)], closed: false, stroke: true, weight: 0.45, clip: 'all' });
   const circle = (c: Vec, r: number): Vec[] => Array.from({ length: 14 }, (_, i) => vec(c.x + r * Math.cos((i / 14) * 2 * Math.PI), c.y + r * Math.sin((i / 14) * 2 * Math.PI)));
+  const rivet = (c: Vec): FlatPart => ({ kind: 'detail', points: circle(c, 0.45), closed: true, fill: 'body', stroke: true, weight: 0.45, clip: 'all' });
   /** Outer side seam x at height y on one side (from the outline itself, so it follows the hip curve). */
   const sideX = (s: number, y: number) => {
     const xs = crossingsAtY(outline, y).filter((x) => s * x > 0);
     return xs.length ? s * Math.max(...xs.map(Math.abs)) : s * W;
   };
 
-  // Front pocket openings: a curve from the waistband out to the side seam, with stitching.
-  if (surface === 'front' && p.core.frontPockets) {
-    for (const s of [1, -1]) {
-      const yEnd = wb + Math.min(R * 0.45, 14);
-      const a = vec(s * W * 0.52, wb), c = vec(s * W * 0.6, wb + (yEnd - wb) * 0.85), b = vec(sideX(s, yEnd) + s * 1.5, yEnd);
-      const curve = [a, ...quadPoints(a, c, b, 10)];
-      over.push(line(curve));
-      // Stitching sits on the body side of the opening (whichever offset lies lower).
-      const o1 = offsetPolyline(curve, 0.6), o2 = offsetPolyline(curve, -0.6);
-      over.push(stitch(o1[5].y > o2[5].y ? o1 : o2));
+  // Waistband. On the front, the band dips at the centre and the inside of the back
+  // waistband shows above it, as on a real flat; the back is drawn straight.
+  const dip = surface === 'front' && wb > 0 ? Math.min(2, wb * 0.5) : 0;
+  const bandTop = (x: number) => dip * (1 - Math.min(1, (x / W) ** 2));
+  const curveAt = (offset: number) => Array.from({ length: 25 }, (_, i) => vec(-far + ((2 * far) * i) / 24, 0)).map((v) => vec(v.x, bandTop(v.x) + offset));
+  if (dip > 0) {
+    over.push({ kind: 'detail', points: [vec(-far, -5), vec(far, -5), ...curveAt(0).reverse()], closed: true, fill: 'shade', clip: 'all' });
+  }
+  if (wb > 0) {
+    over.push({ kind: 'rib', points: [...curveAt(0), ...curveAt(wb).reverse()], closed: true, fill: 'rib', stroke: true, weight: 0.6, clip: 'all' });
+    if (!banded) {
+      for (let x = -W + 1.2; x < W - 0.6; x += 1.6) over.push({ kind: 'detail', points: [vec(x, bandTop(x) + wb * 0.18), vec(x, bandTop(x) + wb * 0.82)], closed: false, stroke: true, weight: 0.3, clip: 'all' });
+    } else {
+      over.push(stitch(curveAt(0.6)), stitch(curveAt(wb - 0.6)));
+      if (wb >= 2) {
+        // Belt loops, leaning slightly with the band, and a button at the top of the fly.
+        const loops = surface === 'front' ? [W * 0.42, W * 0.82] : [0, W * 0.52, W * 0.86];
+        for (const lx of loops)
+          for (const s of lx === 0 ? [1] : [1, -1]) {
+            const x = s * lx, lean = s * 0.4;
+            over.push({ kind: 'detail', points: [vec(x - 0.55, bandTop(x) - 0.3), vec(x + 0.55, bandTop(x) - 0.3), vec(x + 0.55 + lean, bandTop(x) + wb + 0.9), vec(x - 0.55 + lean, bandTop(x) + wb + 0.9)], closed: true, fill: 'rib', stroke: true, weight: 0.5, clip: 'all' });
+          }
+        if (surface === 'front' && p.core.fly) over.push({ kind: 'detail', points: circle(vec(0, dip + wb / 2), Math.min(0.9, wb * 0.25)), closed: true, fill: 'rib', stroke: true, weight: 0.5, clip: 'all' });
+      }
     }
   }
 
-  if (wb > 0) {
-    over.push({ kind: 'rib', points: rect(-far, -5, far, wb), closed: true, fill: 'rib', stroke: true, weight: 0.5, clip: 'all' });
-    if (p.core.waistStyle === 'elastic') {
-      for (let x = -W + 1.2; x < W - 0.6; x += 1.6) over.push({ kind: 'detail', points: [vec(x, wb * 0.18), vec(x, wb * 0.82)], closed: false, stroke: true, weight: 0.3, clip: 'all' });
-    } else {
-      // Topstitching along the band, belt loops, and a button at the top of the fly.
-      over.push(stitch([vec(-far, 0.6), vec(far, 0.6)]), stitch([vec(-far, wb - 0.6), vec(far, wb - 0.6)]));
-      if (wb >= 2) {
-        const loops = surface === 'front' ? [W * 0.55, W - 2] : [0, W * 0.5, W - 2];
-        for (const lx of loops)
-          for (const s of lx === 0 ? [1] : [1, -1])
-            over.push({ kind: 'detail', points: rect(s * lx - 0.6, -0.3, s * lx + 0.6, wb + 0.9), closed: true, fill: 'rib', stroke: true, weight: 0.4, clip: 'all' });
-        if (surface === 'front' && p.core.fly) over.push({ kind: 'detail', points: circle(vec(0, wb / 2), Math.min(0.9, wb * 0.25)), closed: true, fill: 'rib', stroke: true, weight: 0.45, clip: 'all' });
+  // Front pockets: a scoop from the waistband to the side seam, with topstitching; on the
+  // wearer's right a small coin pocket, and rivets at the pocket corners.
+  if (surface === 'front' && p.core.frontPockets) {
+    for (const s of [1, -1]) {
+      const yEnd = wb + Math.min(R * 0.42, 13);
+      const ax = s * W * 0.5;
+      const a = vec(ax, bandTop(ax) + wb), c = vec(s * W * 0.56, wb + (yEnd - wb) * 0.92), b = vec(sideX(s, yEnd) + s * 1.5, yEnd);
+      const curve = [a, ...quadPoints(a, c, b, 12)];
+      over.push(line(curve));
+      const o1 = offsetPolyline(curve, 0.6), o2 = offsetPolyline(curve, -0.6);
+      over.push(stitch(o1[6].y > o2[6].y ? o1 : o2));
+      if (banded) {
+        over.push(rivet(vec(ax + s * 0.2, a.y + 0.9)), rivet(vec(sideX(s, yEnd) - s * 0.9, yEnd - 0.4)));
+        if (s === -1) {
+          const x0 = -W * 0.56, x1 = -W * 0.82, top = bandTop(-W * 0.7) + wb + 0.5, h = Math.min(4.5, R * 0.15);
+          over.push({ kind: 'detail', points: [vec(x0, top), vec(x1, top + 0.4), vec(x1 + 0.3, top + h), vec(x0 - 0.2, top + h - 0.3)], closed: true, stroke: true, weight: 0.5, clip: 'all' });
+          over.push(stitch([vec(x0 - 0.3, top + 0.9), vec(x1 + 0.3, top + 1.3)]));
+        }
       }
     }
   }
+
   // Centre seam, and the fly stitching on the front.
-  over.push(line([vec(0, wb), vec(0, R)]));
+  over.push(line([vec(0, dip + wb), vec(0, R)]));
   if (surface === 'front' && p.core.fly) {
     const fx = Math.min(3.8, W * 0.2);
-    const end = vec(0, R * 0.78);
-    const fly: Vec[] = [vec(fx, wb)];
-    for (let i = 0; i <= 8; i++) fly.push(cubic(vec(fx, R * 0.5), vec(fx, R * 0.7), vec(fx * 0.4, R * 0.78), end, i / 8));
-    over.push(stitch(fly, 0.45));
+    const fly = (inset: number) => {
+      const end = vec(0, R * 0.78 - inset);
+      const pts: Vec[] = [vec(fx - inset, dip + wb)];
+      for (let i = 0; i <= 8; i++) pts.push(cubic(vec(fx - inset, R * 0.5), vec(fx - inset, R * 0.7 - inset), vec((fx - inset) * 0.4, R * 0.78 - inset), end, i / 8));
+      return pts;
+    };
+    over.push(stitch(fly(0), 0.4), stitch(fly(0.6), 0.4));
   }
-  if (surface === 'back') {
-    // Back yoke seam: a shallow V across the seat, typical of jeans and work pants.
-    if (p.core.waistStyle === 'band') {
-      const yokeY = wb + Math.min(6, R * 0.2);
-      over.push(line([vec(-far, yokeY - 1.5), vec(0, yokeY + 1.5), vec(far, yokeY - 1.5)]));
-    }
-    if (p.core.backPockets) {
-      const pw = Math.min(14, W * 0.42), ph = pw * 1.1, top = wb + Math.min(8, R * 0.26);
-      for (const s of [1, -1]) {
-        const cx = s * W * 0.5;
-        const pocket = [vec(cx - pw / 2, top), vec(cx + pw / 2, top), vec(cx + pw / 2, top + ph * 0.82), vec(cx, top + ph), vec(cx - pw / 2, top + ph * 0.82)];
-        over.push({ kind: 'detail', points: pocket, closed: true, stroke: true, weight: 0.5, clip: 'all' });
-        over.push(stitch([vec(cx - pw / 2 + 0.5, top + 1.2), vec(cx + pw / 2 - 0.5, top + 1.2)]));
+
+  // Back patch pockets: rectangles leaning slightly outwards, double topstitched, riveted.
+  if (surface === 'back' && p.core.backPockets) {
+    const pw = Math.min(14, W * 0.42), ph = pw * 1.15, top = wb + Math.min(7, R * 0.24);
+    for (const s of [1, -1]) {
+      const cx = s * W * 0.5, lean = s * 0.9;
+      const corners = (inset: number) => [
+        vec(cx - pw / 2 + inset, top + inset + (s > 0 ? 0 : 0.5)),
+        vec(cx + pw / 2 - inset, top + inset + (s > 0 ? 0.5 : 0)),
+        vec(cx + pw / 2 - inset - lean * 0.3, top + ph - inset),
+        vec(cx - pw / 2 + inset - lean * 0.3, top + ph - inset + (s > 0 ? 0.6 : -0.6) * 0),
+      ];
+      over.push({ kind: 'detail', points: corners(0), closed: true, stroke: true, weight: 0.6, clip: 'all' });
+      for (const inset of [0.5, 1]) {
+        const c = corners(inset);
+        over.push(stitch([...c, c[0]]));
       }
+      if (banded) over.push(rivet(vec(cx - pw / 2 + 0.7, top + 0.8)), rivet(vec(cx + pw / 2 - 0.7, top + 0.8)));
     }
   }
 
@@ -206,6 +235,11 @@ function flatParts(p: PantsParams, surface: Surface): FlatParts {
     const s = SIGN[side];
     const lp = leg(p, side);
     const inseam = p[side].inseam;
+
+    // The back leg shows as a narrow strip along the inside seam, below the crotch.
+    const strip = lp.innerSeam.filter((v) => v.y > R + 4).map((v) => vec(v.x + s * 1.2, v.y));
+    if (strip.length > 1) over.push(line(strip, 0.5));
+
     if (p.core.cargoPockets && inseam >= 12) {
       const top = R + Math.min(8, inseam * 0.15);
       const h = Math.min(21, inseam * 0.38);
@@ -213,29 +247,27 @@ function flatParts(p: PantsParams, surface: Surface): FlatParts {
       const w = Math.min(17, legW * 0.55);
       const edge = Math.abs(outerXAt(lp, top + h / 2)) - 1.5; // sits just inside the outer seam
       const x0 = s * (edge - w), x1 = s * edge;
-      over.push({ kind: 'detail', points: rect(x0, top, x1, top + h), closed: true, fill: 'body', stroke: true, weight: 0.5, clip: 'all' });
+      over.push({ kind: 'detail', points: rect(x0, top, x1, top + h), closed: true, fill: 'body', stroke: true, weight: 0.6, clip: 'all' });
       over.push(stitch(rect(x0 + s * 0.5, top + 0.5, x1 - s * 0.5, top + h - 0.5).concat([vec(x0 + s * 0.5, top + 0.5)])));
-      over.push({ kind: 'detail', points: rect(x0 - s * 0.6, top - 0.6, x1 + s * 0.6, top + Math.min(5.5, h * 0.3)), closed: true, fill: 'body', stroke: true, weight: 0.5, clip: 'all' });
+      over.push({ kind: 'detail', points: rect(x0 - s * 0.6, top - 0.6, x1 + s * 0.6, top + Math.min(5.5, h * 0.3)), closed: true, fill: 'body', stroke: true, weight: 0.6, clip: 'all' });
     }
     const hemY = lp.outerHem.y;
     const band = p.core.cuffStyle === 'elastic' ? Math.min(4.5, inseam * 0.25) : 0;
     if (band > 0) {
       const y = hemY - band;
-      over.push({ kind: 'rib', points: [vec(innerXAt(lp, p, y), y), vec(outerXAt(lp, y), y), lp.outerHem, lp.innerHem], closed: true, fill: 'rib', stroke: true, weight: 0.5, clip: 'all' });
+      over.push({ kind: 'rib', points: [vec(innerXAt(lp, p, y), y), vec(outerXAt(lp, y), y), lp.outerHem, lp.innerHem], closed: true, fill: 'rib', stroke: true, weight: 0.6, clip: 'all' });
       const x0 = innerXAt(lp, p, y), x1 = outerXAt(lp, y);
       for (let t = 0.08; t < 0.95; t += 0.09) {
         const xa = x0 + (x1 - x0) * t, xb = lp.innerHem.x + (lp.outerHem.x - lp.innerHem.x) * t;
         over.push({ kind: 'detail', points: [vec(xa, y + band * 0.15), vec(xb, hemY - band * 0.15)], closed: false, stroke: true, weight: 0.3, clip: 'all' });
       }
     } else {
-      // Double-needle hem stitching.
-      for (const d of [Math.min(1.8, inseam * 0.12), Math.min(2.4, inseam * 0.16)]) {
-        const y = hemY - d;
-        over.push(stitch([vec(innerXAt(lp, p, y) - s * 2, y), vec(outerXAt(lp, y) + s * 2, y)]));
-      }
+      // Hem band: one clean line across the leg.
+      const y = hemY - Math.min(2.2, inseam * 0.15);
+      over.push(line([vec(innerXAt(lp, p, y) - s * 2, y), vec(outerXAt(lp, y) + s * 2, y)]));
     }
 
-    // Fold lines: whiskers from the crotch, and soft creases at the knee on long legs.
+    // Fold lines (off by default): whiskers from the crotch, soft creases at the knee.
     if (inseam > 8) {
       over.push(fold(vec(s * 1.5, R + 1), vec(s * 3.5, R - 1.5), vec(s * Math.min(8, W * 0.4), R - 5)));
       over.push(fold(vec(s * 2.5, R + 3), vec(s * 5, R + 1), vec(s * Math.min(10, W * 0.5), R - 1.5)));
@@ -325,9 +357,8 @@ function validate(p: PantsParams): Issue[] {
   if (p.core.waistbandHeight > p.core.rise - 6) issues.push({ rule: 'band-too-tall', message: 'The waistband is taller than the rise allows. Lower the band or lengthen the rise.' });
   for (const side of ['left', 'right'] as const) {
     const lp = leg(p, side);
-    // The whole curved inside seam (below the crotch) must stay on its own side of the centre line.
-    // The legs nearly touch just below the crotch, so the gap is only required further down.
-    if (lp.innerSeam.some((v) => SIGN[side] * v.x < (v.y > p.core.rise + 8 ? 0.5 : 0)))
+    // The curved inside seam must never cross the centre line, and the hems must not touch.
+    if (lp.innerSeam.some((v) => SIGN[side] * v.x < 0) || SIGN[side] * lp.innerHem.x < 0.5)
       issues.push({ rule: 'legs-overlap', message: `The wearer's ${side} leg would cross the middle. Angle it outwards or make it narrower.` });
   }
   if (issues.length) return issues;

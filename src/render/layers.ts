@@ -80,7 +80,15 @@ export function panelPath(panel: Panel, frame: PanelFrame, surface: NeckSurface,
 function seamInk(bodyColor: string): string {
   const n = parseInt(bodyColor.slice(1), 16);
   const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-  return lum < 0.45 ? 'rgba(232,234,238,0.55)' : 'rgba(31,36,48,0.6)';
+  // Flat-sketch convention: construction lines are solid black like the outline; on dark
+  // garments they turn light so they stay visible.
+  return lum < 0.32 ? 'rgba(226,228,232,0.85)' : '#1f2430';
+}
+
+/** The body colour in shadow: what you see of the garment's inside through an opening. */
+function shadeOf(color: string): string {
+  const n = parseInt(color.slice(1), 16);
+  return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => Math.round(c * 0.82).toString(16).padStart(2, '0')).join('');
 }
 
 /** Fold lines: softer than seams so they read as fabric, not construction. */
@@ -95,7 +103,7 @@ function partLayer(part: FlatPart, surface: NeckSurface, style: GarmentParams['s
   return {
     kind,
     d: linePath(part.points, surface, part.closed),
-    fill: part.fill ? style[part.fill].color : undefined,
+    fill: part.fill ? (part.fill === 'shade' ? shadeOf(style.body.color) : style[part.fill].color) : undefined,
     // Hidden lines sit over the background, so they are always dark.
     stroke: part.stroke ? (part.kind === 'hidden' ? 'rgba(31,36,48,0.6)' : part.kind === 'fold' ? foldInk(style.body.color) : seam) : undefined,
     weight: part.weight,
