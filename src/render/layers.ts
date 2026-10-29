@@ -13,7 +13,7 @@ import { toView, viewSign } from './paths';
  */
 
 export interface Layer {
-  kind: 'body' | 'sleeve' | 'panel' | 'rib' | 'seam' | 'hidden' | 'outline';
+  kind: 'body' | 'sleeve' | 'panel' | 'rib' | 'seam' | 'hidden' | 'fold' | 'outline';
   d: string;
   fill?: string;
   stroke?: string;
@@ -83,6 +83,13 @@ function seamInk(bodyColor: string): string {
   return lum < 0.45 ? 'rgba(232,234,238,0.55)' : 'rgba(31,36,48,0.6)';
 }
 
+/** Fold lines: softer than seams so they read as fabric, not construction. */
+function foldInk(bodyColor: string): string {
+  const n = parseInt(bodyColor.slice(1), 16);
+  const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum < 0.45 ? 'rgba(232,234,238,0.28)' : 'rgba(31,36,48,0.3)';
+}
+
 function partLayer(part: FlatPart, surface: NeckSurface, style: GarmentParams['style'], seam: string): Layer {
   const kind: Layer['kind'] = part.kind === 'detail' ? 'seam' : part.kind;
   return {
@@ -90,7 +97,7 @@ function partLayer(part: FlatPart, surface: NeckSurface, style: GarmentParams['s
     d: linePath(part.points, surface, part.closed),
     fill: part.fill ? style[part.fill].color : undefined,
     // Hidden lines sit over the background, so they are always dark.
-    stroke: part.stroke ? (part.kind === 'hidden' ? 'rgba(31,36,48,0.6)' : seam) : undefined,
+    stroke: part.stroke ? (part.kind === 'hidden' ? 'rgba(31,36,48,0.6)' : part.kind === 'fold' ? foldInk(style.body.color) : seam) : undefined,
     weight: part.weight,
     dashed: part.dashed,
     clipped: part.clip !== 'none',
@@ -118,7 +125,7 @@ export function flatView(p: GarmentParams, surface: NeckSurface): FlatView {
     }
   }
   layers.push(...panelEdges);
-  layers.push(...parts.over.map((part) => partLayer(part, surface, style, seam)));
+  layers.push(...parts.over.filter((part) => style.folds || part.kind !== 'fold').map((part) => partLayer(part, surface, style, seam)));
   layers.push({ kind: 'outline', d: outlinePath, stroke: OUTLINE_INK, weight: 1, clipped: false });
 
   return { layers, clip: outlinePath, bodyClip: linePath(parts.body, surface, true), bounds: bounds(parts.outline.map((v) => toView(v, surface))) };

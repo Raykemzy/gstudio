@@ -110,3 +110,78 @@ export function bounds(points: Vec[]) {
   }
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
 }
+
+/** Points along a quadratic curve a -> b with control c (a excluded, b included). */
+export function quadPoints(a: Vec, c: Vec, b: Vec, n = 8): Vec[] {
+  const out: Vec[] = [];
+  for (let i = 1; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    out.push({ x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y });
+  }
+  return out;
+}
+
+/**
+ * Replace the sharp corner at `corner` (between prev and next) with a smooth curve
+ * that starts and ends `r` cm along each edge (capped at 40% of the shorter edge).
+ */
+export function roundCorner(prev: Vec, corner: Vec, next: Vec, r: number, n = 5): Vec[] {
+  const l1 = dist(prev, corner), l2 = dist(corner, next);
+  const rr = Math.min(r, 0.4 * l1, 0.4 * l2);
+  if (rr < 0.05) return [corner];
+  const a = lerp(corner, prev, rr / l1);
+  const b = lerp(corner, next, rr / l2);
+  return [a, ...quadPoints(a, corner, b, n)];
+}
+
+/**
+ * Shift an open polyline sideways by d (positive = to the left of the direction of
+ * travel, in y-down screen terms that is the clockwise normal), keeping its shape.
+ */
+export function offsetPolyline(pts: Vec[], d: number): Vec[] {
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const tx = b.x - a.x, ty = b.y - a.y;
+    const l = Math.hypot(tx, ty) || 1;
+    return { x: p.x + (ty / l) * d, y: p.y - (tx / l) * d };
+  });
+}
+
+/** Lengthen an open polyline by `by` cm at both ends (handy before clipping to an outline). */
+export function extendEnds(pts: Vec[], by: number): Vec[] {
+  if (pts.length < 2) return pts;
+  const [a, b] = [pts[0], pts[1]], [y, z] = [pts[pts.length - 2], pts[pts.length - 1]];
+  const la = dist(a, b) || 1, lz = dist(y, z) || 1;
+  return [
+    { x: a.x - ((b.x - a.x) / la) * by, y: a.y - ((b.y - a.y) / la) * by },
+    ...pts,
+    { x: z.x + ((z.x - y.x) / lz) * by, y: z.y + ((z.y - y.y) / lz) * by },
+  ];
+}
+
+/** Smooth open curve through every point (Catmull-Rom), `n` samples per span; endpoints included. */
+export function catmullRom(pts: Vec[], n = 8): Vec[] {
+  if (pts.length < 3) return pts.slice();
+  const at = (i: number) => pts[Math.max(0, Math.min(pts.length - 1, i))];
+  const out: Vec[] = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+    for (let k = 1; k <= n; k++) {
+      const t = k / n, t2 = t * t, t3 = t2 * t;
+      out.push({
+        x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+      });
+    }
+  }
+  return out;
+}
+
+/** x where a polyline running downwards crosses height y (clamped to its ends). */
+export function xAtY(line: Vec[], y: number): number {
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i], b = line[i + 1];
+    if ((y >= a.y && y <= b.y) || (y <= a.y && y >= b.y)) return a.x + ((y - a.y) / (b.y - a.y || 1)) * (b.x - a.x);
+  }
+  return y < line[0].y ? line[0].x : line[line.length - 1].x;
+}

@@ -75,7 +75,7 @@ function randomStyle(r: Rng): GarmentStyle {
       fill: { color: color() },
     };
   });
-  return { body: { color: color() }, sleeves: { color: color() }, rib: { color: color() }, armholeSeam: r.next() < 0.5, panels };
+  return { body: { color: color() }, sleeves: { color: color() }, rib: { color: color() }, armholeSeam: r.next() < 0.5, folds: r.next() < 0.5, panels };
 }
 
 function randomParams(r: Rng): TShirtParams {

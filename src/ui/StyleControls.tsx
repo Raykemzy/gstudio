@@ -1,5 +1,5 @@
 import { newId } from '../model/schema';
-import { PANEL_TEMPLATES, SWATCHES, type Fill, type GarmentStyle, type Panel } from '../model/style';
+import { PANEL_TEMPLATES, SWATCHES, withBodyColour, type Fill, type GarmentStyle, type Panel } from '../model/style';
 import type { NeckSurface } from '../geometry/outline';
 import type { StyleLabels } from '../garments/types';
 
@@ -47,7 +47,7 @@ function ColourPicker({ label, fill, onPick }: { label: string; fill: Fill; onPi
 export function StyleControls({ style, labels, surface, selectedPanelId, selectedPoint, onChange, onSelectPanel, onSelectPoint }: Props) {
   const stamp = () => Date.now();
   const setFill = (part: 'body' | 'sleeves' | 'rib', color: string, continuous: boolean) =>
-    onChange({ ...style, [part]: { color } }, continuous ? `fill:${part}` : `fill:${part}:${stamp()}`);
+    onChange(part === 'body' ? withBodyColour(style, color) : { ...style, [part]: { color } }, continuous ? `fill:${part}` : `fill:${part}:${stamp()}`);
 
   const panel = style.panels.find((p) => p.id === selectedPanelId) ?? null;
   const updatePanel = (next: Panel, key: string) => onChange({ ...style, panels: style.panels.map((p) => (p.id === next.id ? next : p)) }, key);
@@ -110,6 +110,10 @@ export function StyleControls({ style, labels, surface, selectedPanelId, selecte
         <ColourPicker label={labels.body} fill={style.body} onPick={(c, k) => setFill('body', c, k)} />
         {labels.sleeves && <ColourPicker label={labels.sleeves} fill={style.sleeves} onPick={(c, k) => setFill('sleeves', c, k)} />}
         <ColourPicker label={labels.rib} fill={style.rib} onPick={(c, k) => setFill('rib', c, k)} />
+        <label className="toggle" title="Soft lines that suggest how the fabric falls. Drawing only: they don't change the shape.">
+          <input type="checkbox" checked={style.folds} onChange={(e) => onChange({ ...style, folds: e.target.checked }, `folds:${stamp()}`)} />
+          Show fold lines
+        </label>
         {labels.armholeSeam && (
           <label className="toggle" title="The line where each sleeve joins the body">
             <input type="checkbox" checked={style.armholeSeam} onChange={(e) => onChange({ ...style, armholeSeam: e.target.checked }, `armhole-seam:${stamp()}`)} />

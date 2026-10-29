@@ -42,6 +42,8 @@ export interface GarmentStyle {
   rib: Fill;
   /** Draw the seam where each sleeve joins the body. */
   armholeSeam: boolean;
+  /** Draw soft fold lines (drawing realism only; no effect on the shape). */
+  folds: boolean;
   /** Bottom to top: later panels cover earlier ones. */
   panels: Panel[];
 }
@@ -50,7 +52,7 @@ export const DEFAULT_BODY = '#eef0f3';
 export const DEFAULT_RIB = '#c9ced8';
 
 export function defaultStyle(): GarmentStyle {
-  return { body: { color: DEFAULT_BODY }, sleeves: { color: DEFAULT_BODY }, rib: { color: DEFAULT_RIB }, armholeSeam: true, panels: [] };
+  return { body: { color: DEFAULT_BODY }, sleeves: { color: DEFAULT_BODY }, rib: { color: DEFAULT_RIB }, armholeSeam: true, folds: true, panels: [] };
 }
 
 /** Garment colours a beginner is likely to want, light to dark. */
@@ -201,8 +203,35 @@ export const styleSchema = z.object({
   rib: fillSchema,
   // Added after v2 shipped: files without it keep the seam they always had.
   armholeSeam: z.boolean().default(true),
+  folds: z.boolean().default(true),
   panels: z.array(panelSchema).max(40),
 });
+
+/** Rib knit reads slightly different from the body fabric: a touch darker on light colours, lighter on dark ones. */
+export function ribShadeOf(color: string): string {
+  const n = parseInt(color.slice(1), 16);
+  const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+  const mixed = rgb.map((c) => Math.round(lum < 0.45 ? c + (255 - c) * 0.12 : c * 0.88));
+  return '#' + mixed.map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * New body colour: the sleeves and rib follow it unless they were set separately
+ * (i.e. they still match what they would have been for the old body colour).
+ */
+export function withBodyColour(style: GarmentStyle, color: string): GarmentStyle {
+  const old = style.body.color.toLowerCase();
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const sleevesFollow = same(style.sleeves.color, old);
+  const ribFollows = same(style.rib.color, ribShadeOf(old)) || same(style.rib.color, DEFAULT_RIB) || same(style.rib.color, old);
+  return {
+    ...style,
+    body: { color },
+    sleeves: sleevesFollow ? { color } : style.sleeves,
+    rib: ribFollows ? { color: ribShadeOf(color) } : style.rib,
+  };
+}
 
 /** A readable text colour (seams, labels) for a given fill. */
 export function contrastInk(color: string): string {

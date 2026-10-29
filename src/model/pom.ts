@@ -1,5 +1,5 @@
 import type { Side, TShirtParams } from './schema';
-import { buildOutline, sidePoints } from '../geometry/outline';
+import { buildBodyOutline, buildOutline, sidePoints } from '../geometry/outline';
 import type { Vec } from '../geometry/polygon';
 
 /**
@@ -51,11 +51,9 @@ function lowestAtX(poly: Vec[], x: number): number | null {
   return best;
 }
 
-/** The body only: outline without the sleeve corners, so widths run armhole to armhole / seam to seam. */
+/** The body only, so widths run armhole to armhole / seam to seam. */
 function bodyPolygon(p: TShirtParams): Vec[] {
-  const o = buildOutline(p, 'front');
-  const sleeve = (['left', 'right'] as const).flatMap((s) => (p[s].sleeveLength > 0.5 ? [o.sides[s].sleeveTop, o.sides[s].sleeveBottom] : []));
-  return o.polygon.filter((v) => !sleeve.some((q) => Math.abs(q.x - v.x) < 1e-9 && Math.abs(q.y - v.y) < 1e-9));
+  return buildBodyOutline(p, 'front');
 }
 
 /** Flat width across the body at height y (0 if the line misses the body). */

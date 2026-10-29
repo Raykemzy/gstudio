@@ -1,5 +1,5 @@
 import type { NeckStyle, Side, TShirtParams } from '../model/schema';
-import { cubic, dedupe, vec, type Vec } from './polygon';
+import { cubic, dedupe, roundCorner, vec, type Vec } from './polygon';
 
 /**
  * Derives the flat garment outline from parameters. This is the single geometric
@@ -34,6 +34,8 @@ export interface Outline {
 export const SIDE_SIGN: Record<Side, 1 | -1> = { left: 1, right: -1 };
 const NECK_SAMPLES = 32;
 const HEM_SAMPLES = 14;
+/** How far the armpit curve reaches along each edge, cm. */
+const ARMPIT_RADIUS = 2.5;
 
 /** Depth of a neckline below the shoulder line at horizontal position x (0 outside the neck). */
 export function neckDepthAt(style: NeckStyle, halfWidth: number, depth: number, x: number): number {
@@ -109,22 +111,54 @@ export function buildOutline(p: TShirtParams, surface: NeckSurface | 'outer' = '
   const hemLeft = hemHalfCurve(p, hemCenter, left.hemSide); // centre -> left side
   const hemRight = hemHalfCurve(p, hemCenter, right.hemSide); // centre -> right side
 
+  const leftHemSide = hemLeft[hemLeft.length - 1];
+  const rightHemSide = hemRight[hemRight.length - 1];
+  // Real garments curve at the armpit where the sleeve meets the side seam.
+  const armpit = (sleeveBottom: Vec, underarm: Vec, sideHem: Vec) => roundCorner(sleeveBottom, underarm, sideHem, ARMPIT_RADIUS);
   const polygon = dedupe([
     ...neck,
     left.shoulder,
     left.sleeveTop,
     left.sleeveBottom,
-    left.underarm,
+    ...armpit(left.sleeveBottom, left.underarm, leftHemSide),
     ...hemLeft.slice().reverse(), // left side seam hem -> towards centre
     hemCenter,
     ...hemRight,
-    right.underarm,
+    ...armpit(right.sleeveBottom, right.underarm, rightHemSide).reverse(),
     right.sleeveBottom,
     right.sleeveTop,
     right.shoulder,
   ]);
   const neckCenter = vec(0, surface === 'outer' ? outerNeckY(p, 0) : neckY(p, surface, 0));
   return { polygon, neck, sides: { left, right }, hemCenter, neckCenter };
+}
+
+/** The hem from the wearer's right side seam, through the centre, to the left side seam. */
+export function hemLine(p: TShirtParams): Vec[] {
+  const left = sidePoints(p, 'left');
+  const right = sidePoints(p, 'right');
+  const hemCenter = vec(0, p.core.bodyLength);
+  return dedupe([right.hemSide, ...hemHalfCurve(p, hemCenter, right.hemSide).reverse().slice(1), hemCenter, ...hemHalfCurve(p, hemCenter, left.hemSide)]);
+}
+
+/**
+ * The body without sleeves: shoulder point straight to the armpit (the armhole seam),
+ * down the side seam, along the hem. Used for measurements and body-only clipping.
+ */
+export function buildBodyOutline(p: TShirtParams, surface: NeckSurface | 'outer' = 'front'): Vec[] {
+  const left = sidePoints(p, 'left');
+  const right = sidePoints(p, 'right');
+  const hemCenter = vec(0, p.core.bodyLength);
+  return dedupe([
+    ...neckCurve(p, surface),
+    left.shoulder,
+    left.underarm,
+    ...hemHalfCurve(p, hemCenter, left.hemSide).reverse(),
+    hemCenter,
+    ...hemHalfCurve(p, hemCenter, right.hemSide),
+    right.underarm,
+    right.shoulder,
+  ]);
 }
 
 /** Offset a neckline into the garment body by `width` (used for the collar rib band). */

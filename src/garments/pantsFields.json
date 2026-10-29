@@ -98,6 +98,10 @@
       "label": "Front fly stitching",
       "default": true
     },
+    "frontPockets": {
+      "label": "Front pockets",
+      "default": true
+    },
     "cargoPockets": {
       "label": "Cargo pockets",
       "default": false

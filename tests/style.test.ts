@@ -1,3 +1,6 @@
+import { ribShadeOf, withBodyColour } from '../src/model/style';
+import { buildBodyOutline, buildOutline, sidePoints } from '../src/geometry/outline';
+import { pointInPolygon } from '../src/geometry/polygon';
 import { SCHEMA_VERSION } from '../src/model/design';
 import { newDesign } from '../src/model/design';
 import { describe, expect, it } from 'vitest';
@@ -140,8 +143,12 @@ describe('panel areas', () => {
     const panels = v.layers.filter((l) => l.kind === 'panel');
     expect(panels.filter((l) => l.panelId === 'side-curve').every((l) => l.bodyOnly)).toBe(true);
     expect(panels.filter((l) => l.panelId === 'yoke').every((l) => !l.bodyOnly)).toBe(true);
-    // The body clip has the four sleeve corners removed.
-    expect(v.bodyClip.split('L').length).toBe(v.clip.split('L').length - 4);
+    // A point in the middle of a sleeve is inside the garment but outside the body-only shape.
+    const sp = sidePoints(p as TShirtParams, 'left');
+    const midSleeve = { x: (sp.shoulder.x + sp.sleeveTop.x + sp.sleeveBottom.x + sp.underarm.x) / 4, y: (sp.shoulder.y + sp.sleeveTop.y + sp.sleeveBottom.y + sp.underarm.y) / 4 };
+    expect(pointInPolygon(midSleeve, buildOutline(p as TShirtParams, 'front').polygon)).toBe(true);
+    expect(pointInPolygon(midSleeve, buildBodyOutline(p as TShirtParams, 'front'))).toBe(false);
+    expect(v.bodyClip).not.toBe(v.clip);
   });
 });
 
@@ -149,12 +156,25 @@ describe('armhole seam', () => {
   it('can be turned off; files saved before the option existed keep the seam', () => {
     const p = defaultParams();
     const seams = (q: TShirtParams) => flatView(q, 'front').layers.filter((l) => l.kind === 'seam').length;
-    expect(seams(p)).toBe(2);
+    const withSeam = seams(p);
     p.style.armholeSeam = false;
-    expect(seams(p)).toBe(0);
+    expect(withSeam - seams(p)).toBe(2); // exactly the two armhole seams go
     const old = JSON.parse(serializeDesign(newDesign(defaultParams(), 'x')));
     delete old.params.style.armholeSeam;
     const r = parseDesign(JSON.stringify(old));
     expect(r.ok && r.design.params.style.armholeSeam).toBe(true);
+  });
+});
+
+describe('colour linking', () => {
+  it('sleeves and rib follow the body colour until they are set separately', () => {
+    const base = defaultParams().style;
+    const black = withBodyColour(base, '#121214');
+    expect(black.sleeves.color).toBe('#121214');
+    expect(black.rib.color).toBe(ribShadeOf('#121214'));
+    // Set the sleeves separately: they no longer follow, the rib still does.
+    const custom = withBodyColour({ ...black, sleeves: { color: '#b3261e' } }, '#e9dfc9');
+    expect(custom.sleeves.color).toBe('#b3261e');
+    expect(custom.rib.color).toBe(ribShadeOf('#e9dfc9'));
   });
 });

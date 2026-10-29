@@ -264,7 +264,7 @@ export const PRESETS: Preset[] = [
     name: 'Balloon leg',
     category: 'Pants & cargos',
     description: 'Curved, full knees tapering back in at the hem.',
-    params: pants({ rise: 33 }, { thighWidth: 30, kneeWidth: 33, legOpening: 21, legSplay: 5, inseam: 76 }),
+    params: pants({ rise: 33 }, { thighWidth: 30, kneeWidth: 31, legOpening: 21, legSplay: 5.5, inseam: 76 }),
   },
 
   // ----- Shorts -----

@@ -24,7 +24,7 @@ export interface GarmentHandle {
 
 /** One drawn element of a flat view, in the model frame (the view mirrors it for the back). */
 export interface FlatPart {
-  kind: 'sleeve' | 'rib' | 'seam' | 'detail' | 'hidden';
+  kind: 'sleeve' | 'rib' | 'seam' | 'detail' | 'hidden' | 'fold';
   points: Vec[];
   closed: boolean;
   /** 'body' | 'sleeves' | 'rib' → the style colour to fill with; omitted = no fill. */

@@ -18,6 +18,7 @@ describe('pants shape', () => {
     const p = pantsDefaults();
     expect(validateDesign(p)).toEqual([]);
     const o = pantsOutline(p);
+    // The inside legs meet at the crotch point in one smooth curve.
     expect(o).toContainEqual({ x: 0, y: p.core.rise });
     expect(bounds(o).maxY).toBeCloseTo(p.core.rise + p.left.inseam, 5);
   });
